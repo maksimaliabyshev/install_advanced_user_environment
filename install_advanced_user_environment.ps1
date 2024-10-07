@@ -5,7 +5,6 @@
  Version 1.0 by Maksim Aliabyshev
 #>
 
-# [CmdletBinding()]
 param(
     [string]$theme = "quick-term.omp.json",
     [string[]]$fonts = @(),
@@ -19,87 +18,29 @@ param(
     $NoExit
 )
 
+
 ###  Elevate Credentials  ###
-
-# function Elevate {
-#     <#
-#         .SYNOPSIS
-#             Automatically (re)launch Powershell script as Administrator including parameters
-#         .PARAMETER ScriptPath
-#             Path to the script that should be launched. Defaults to the current script
-#         .PARAMETER Parameters
-#             A Hashtable of parameters that should be passed to the elevated script, where the "key" is the
-#             parameter name and the "value" is the parameter value
-#         .PARAMETER Exit
-#             End the current powershell session after launching the script
-#         .EXAMPLE
-#             Relaunch the current script as Administrator passing along any parameters passed to the
-#             current instance and then end the current session.
-
-#             Elevate -Parameters $PSBoundParameters -Exit
-#         .LINK https://gist.github.com/ellisgeek/2a0821ebf9bb983e04dc
-#     #>
-#     param
-#     (
-#         [parameter(Position = 0)]
-#         [string]$ScriptPath = $script:MyInvocation.MyCommand.Path,
-#         [parameter(Position = 1, Mandatory = $true)]
-#         [hashtable]$Params
-#     )
-#     # This will hold our argument string that gets passed to the new powershell instance.
-#     $arg = ""
-#     # Only iterate over the params object if we need to
-#     if (-not [string]::IsNullOrEmpty($Params)) {
-#         # Iterate over the parameters the parent script got and turn them into a string of arguments
-#         # to pass to the new session
-#         Foreach ($key in $params.Keys) {
-#             $value = $params[$key]
-#             $arg += "-$key $value"
-#             Write-Host $key, ": ", $value
-#         }
-#     }
-#     # Provide Feedback
-#     Write-Host("Relaunching script as Administrator!")
-#     # Only run if we aren't running as Administrator
-#     If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-#     [Security.Principal.WindowsBuiltInRole] "Administrator")) {
-#         # Write-Verbose("Restarting script with Administrator rights")
-#         # Run script in a new session as Administrator.
-#         Start-Process -FilePath powershell.exe -ArgumentList @("-NoExit -File `"$ScriptPath`" $arg") `
-#                       -Verb runas  #-WindowStyle 'Hidden' # Uncomment this line if you are using
-#                                                                   # .NET Forms to hide the Powershell
-#                                                                   # window that is spawned by the new session
-#         # Write-Verbose("Ending current Session")
-
-#         # Return non zero exit code that can be used to check if script was relaunched
-#         # $host.SetShouldExit(42)
-#         # End current session and let the new one take over
-#         Exit
-#     }
-# }
-
 # debugging command line arguments passing
-if (-not [string]::IsNullOrEmpty($PSBoundParameters)) {
-    $params = ($PSBoundParameters.GetEnumerator() | ForEach-Object { "-$($_.Key) `'$($_.Value)`'" }) -join ' '
-    Write-Host '$params: ', $params
-}
+# if (-not [string]::IsNullOrEmpty($PSBoundParameters)) {
+#     $params = ($PSBoundParameters.GetEnumerator() | ForEach-Object { "-$($_.Key) `'$($_.Value)`'" }) -join ' '
+#     Write-Host '$params: ', $params
+# }
 
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
     if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
-        $CommandLine = "cd `'$pwd`'; $($MyInvocation.Line)" -replace '"',"`'"
-        Write-Host "CommandLine: $CommandLine"
+        $CommandLine = "cd `'$pwd`'; $($MyInvocation.Line)" -replace '"', "`'"
+        # Write-Host "CommandLine: $CommandLine"
         Start-Process powershell -Verb RunAs -ArgumentList ("-NoExit -NoProfile -Command $CommandLine")
         Exit $LASTEXITCODE
     }
 }
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser *>$null
 (Remove-Item alias:\where -Force) 2>$null
 
 
 ###  Init  ###
 $fonts = @("JetBrainsMono", "Meslo", "IBMPlexMono") + ($fonts -split "[\s\,]+")
-$modules = @( "PsReadLine", "Terminal-Icons", "Posh", "posh-git") + ($modules -split "[\s\,]+")
-# $modules = @("Microsoft.PowerShell.ConsoleGuiTools") + ($modules -split "[\s\,]+") -join("|")
+$modules = @("PsReadLine", "Posh", "posh-git", "Terminal-Icons") + ($modules -split "[\s\,]+")
+# $modules = @("Microsoft.PowerShell.ConsoleGuiTools") + ($modules -split "[\s\,]+")
 # $modulesNoImport = @("PowerShellGet") + $modulesNoImport
 $scripts = @("TabExpansion2") + ($scripts -split "[\s\,]+")
 
@@ -118,9 +59,10 @@ if ([Environment]::Is64BitProcess -ne [Environment]::Is64BitOperatingSystem) {
     Start-Sleep -Seconds 5
 }
 
+
 ###  Install winget  ###
 #Write-HostCenter "Installing package manager WinGet..." -ForegroundColor Cyan
-#Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers
+#Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force
 #Install-Script -Name winget-install -Scope AllUsers
 #winget-install -ForceClose
 
@@ -321,7 +263,9 @@ if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
 # if ([Environment]::Is64BitOperatingSystem) {
 #     # Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
 #     scoop install pragtical --global
-#     scoop shim add p 'pragtical' --global
+    scoop shim add p 'pragtical' --global
+    scoop shim add pwshconf 'pragtical' '$(pwsh.exe -Command "$PROFILE.AllUsersAllHosts")' --global
+
 #     scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
 #     # $pragticalDataFolder = [Environment]::GetFolderPath('CommonApplicationData') + "\scoop\apps\pragtical\current\data"
 #     ppm purge --force
@@ -345,7 +289,7 @@ if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
 
 
 ###  Install oh-my-posh  ###
-#Write-HostCenter "`nInstalling oh-my-posh..." -ForegroundColor Cyan
+#Write-HostCenter "Installing oh-my-posh..." -ForegroundColor Cyan
 #winget install $poshName --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
@@ -358,31 +302,32 @@ function Edit-Profile {
     )
     $Text = $Text -Replace "[ \t]+", " "
     $SearchPattern = $SearchPattern -Replace "[ \t]+", " "
-    Write-Host "Text $Text"
-    Write-Host "SearchPattern $SearchPattern"
+    Write-Host "---Text $Text"
+    Write-Host "---SearchPattern $SearchPattern"
     if (!(Test-Path $ProfilePath)) {
         New-Item -Path $ProfilePath -ItemType File -Force
         Write-Host "`nPowerShell profile created: " -ForegroundColor DarkGreen -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
     }
 
-    $selectedText = Select-String -Path $ProfilePath -Pattern $SearchPattern
-    Write-Host "selectedText $selectedText"
+    # $selectedText = Get-Content $ProfilePath | Select-String -Pattern $SearchPattern -SimpleMatch
+    $selectedText = Select-String -Path $ProfilePath -Pattern $SearchPattern -SimpleMatch | Select-Object -First 1 -ExpandProperty Line
+    Write-Host "---selectedText $selectedText"
     # add text
     if ($Text -and !$selectedText) {
         Add-Content -Path $ProfilePath -Value $Text
-        Write-Host "`nAdded in Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+        Write-Host "Added Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
         Write-Host $Text -ForegroundColor DarkGreen
     }
     # update text
     if ($Text -and $selectedText -and ($Text -ne $selectedText)) {
         (Get-Content $ProfilePath -Raw) -Replace "$selectedText", "$Text" -Replace "\n{3,}", "\n" | Set-Content $ProfilePath
-        Write-Host "`nUpdated from Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+        Write-Host "Updated Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
         Write-Host $Text -ForegroundColor DarkGreen
     }
     # remove text
     if (!$Text -and $selectedText) {
         (Get-Content $ProfilePath -Raw) -Replace "$selectedText", "" -Replace "\n{3,}", "\n" | Set-Content $ProfilePath
-        Write-Host "`nRemoved from Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+        Write-Host "Removed in Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
         Write-Host $selectedText -ForegroundColor DarkRed
     }
 }
@@ -406,8 +351,6 @@ function Edit-Profile {
 
 $fixWhereCommand = '(Remove-Item alias:\where -Force) 2>$null'
 
-#This will hide errors
-# $ErrorActionPreference = "SilentlyContinue"
 if ($powershellStatus) {
     #fix CTRL+C, CTRL+V, CTRL+X for Russian keyboard layout
     # Edit-Profile -ProfilePath $powershellProfileAllUsersAllHosts  -Text $fixRussianKeyboardCopyPaste -SearchPattern $fixRussianKeyboardCopyPaste
@@ -425,25 +368,29 @@ if ($pwshStatus) {
 
 
 Write-Host "`nInstalling modules...:  " -ForegroundColor Cyan -NoNewline; Write-Host "$modules $modulesNoImport" -ForegroundColor Green
-Set-PSRepository PSGallery -InstallationPolicy Trusted
+Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
+Get-PSRepository
+
 foreach ($moduleName in $modules) {
 
     if ($powershellStatus) {
-        Write-Host "`nInstall module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        powershell.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber"
-
-        #add import module to profile
-        $moduleLine = "Import-Module -Name $moduleName"
-        Edit-Profile -ProfilePath $powershellProfile -Text $moduleLine -SearchPattern "Import-Module -Name $moduleName"
+        Write-Host "`nInstall module in PowerShell: $moduleName" -ForegroundColor White -BackgroundColor Magenta
+        powershell.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -Force"
+        if ($?) {
+            #add import module to profile
+            $moduleLine = "Import-Module -Name $moduleName"
+            Edit-Profile -ProfilePath $powershellProfile -Text $moduleLine -SearchPattern "Import-Module -Name $moduleName"
+        }
     }
 
     if ($pwshStatus) {
-        Write-Host "`nInstall module in PowerShell Core:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -AllowPrerelease"
-
-        #add import module to profile
-        $moduleLine = "Import-Module -Name $moduleName"
-        Edit-Profile -ProfilePath $pwshProfile -Text $moduleLine -SearchPattern "Import-Module -Name $moduleName"
+        Write-Host "`nInstall module in PowerShell Core: $moduleName" -ForegroundColor White -BackgroundColor Magenta
+        pwsh.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -AllowPrerelease -Force"
+        if ($?) {
+            #add import module to profile
+            $moduleLine = "Import-Module -Name $moduleName"
+            Edit-Profile -ProfilePath $pwshProfile -Text $moduleLine -SearchPattern "Import-Module -Name $moduleName"
+        }
     }
 }
 
@@ -451,12 +398,12 @@ foreach ($moduleName in $modulesNoImport) {
 
     if ($powershellStatus) {
         Write-Host "`nInstall module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        powershell.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber"
+        powershell.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -Force"
     }
 
     if ($pwshStatus) {
         Write-Host "`nInstall module in PowerShell Core:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -AllowPrerelease"
+        pwsh.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -AllowPrerelease -Force"
     }
 }
 
@@ -464,16 +411,14 @@ foreach ($scriptName in $scripts) {
 
     if ($powershellStatus) {
         Write-Host "`nInstall script in PowerShell:  $scriptName" -ForegroundColor White -BackgroundColor Magenta
-        powershell.exe -Command "Install-Script -Name $scriptName -Scope AllUsers"
+        powershell.exe -Command "Install-Script -Name $scriptName -Scope AllUsers -Force"
     }
 
     if ($pwshStatus) {
         Write-Host "`nInstall script in PowerShell Core:  $scriptName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh.exe -Command "Install-Script -Name $scriptName -Scope AllUsers"
+        pwsh.exe -Command "Install-Script -Name $scriptName -Scope AllUsers -Force"
     }
 }
-#Turning errors back on
-# $ErrorActionPreference = "Continue"
 
 
 #oh-my-posh configuration
@@ -492,6 +437,7 @@ if ($pwshStatus) {
 ###  Install Font  ###
 Write-HostCenter "`nInstalling Font..." -ForegroundColor Cyan
 foreach ($font in $fonts) {
+    if ($font -like "IBMPlexMono") {$font ="BlexMonoNerdFont"}
     $installedFonts = Get-ChildItem -Path "C:\Windows\Fonts" | Where-Object { $_.Name -like "$font*" }
     if ($installedFonts) {
         Write-Host "Font '$font' is already installed."
@@ -509,13 +455,13 @@ Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Conso
 
 
 ###  FINISH  ###
-Write-Host "Reloading Profile..." -ForegroundColor Gray
+Write-Host; Write-Host "Reloading Profile..." -ForegroundColor Cyan
 . $PROFILE
 
 Write-HostCenter "Installation Complete." -ForegroundColor Green
 Write-Host
 
-Write-Host "Installed Modules ans Scripts: " -ForegroundColor White -BackgroundColor Magenta
+Write-Host "Installed Modules and Scripts: " -ForegroundColor White -BackgroundColor Magenta
 Get-InstalledModule
 Get-InstalledScript
 
