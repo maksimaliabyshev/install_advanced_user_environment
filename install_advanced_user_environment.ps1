@@ -9,9 +9,10 @@ param(
     [string]$theme = "quick-term.omp.json",
     [string[]]$fonts = @(),
     [string]$poshName = "JanDeDobbeleer.OhMyPosh",
-    [string[]]$modules = @(),
-    [string[]]$modulesNoImport = @(),
     [string[]]$scripts = @(),
+    [string[]]$modulesNoImport = @(),
+    [string[]]$modules = @(),
+    [string[]]$modulesOnlyCore = @(),
     [string]$ProfilePath,
     [string]$shell,
     [switch]$Elevated,
@@ -29,47 +30,159 @@ param(
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
     if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
         $CommandLine = "cd `'$pwd`'; $($MyInvocation.Line)" -replace '"', "`'"
-        # Write-Host "CommandLine: $CommandLine"
-        Start-Process powershell -Verb RunAs -ArgumentList ("-NoExit -NoProfile -Command $CommandLine")
+        Write-Host "CommandLine: ", $CommandLine
+        Write-Host "MyInvocation.MyCommand.Path: ", $MyInvocation.MyCommand.Path
+        Start-Process powershell -Verb RunAs -ArgumentList "-NoExit -NoProfile -Command $CommandLine"
         Exit $LASTEXITCODE
     }
 }
-(Remove-Item alias:\where -Force) 2>$null
 
 
 ###  Init  ###
 $fonts = @("JetBrainsMono", "Meslo", "IBMPlexMono") + ($fonts -split "[\s\,]+")
-$modules = @("PsReadLine", "Posh", "posh-git", "Terminal-Icons") + ($modules -split "[\s\,]+")
-# $modules = @("Microsoft.PowerShell.ConsoleGuiTools") + ($modules -split "[\s\,]+")
-# $modulesNoImport = @("PowerShellGet") + $modulesNoImport
-$scripts = @("TabExpansion2") + ($scripts -split "[\s\,]+")
+$scripts = @("Invoke-Obliteration") + ($scripts -split "[\s\,]+")
+$modulesNoImport = @("PackageManagement", "Posh-SSH") + ($modulesNoImport -split "[\s\,]+")
+$modules = @("Posh", "posh-git", "Terminal-Icons", "scoop-completion", "CompletionPredictor") + ($modules -split "[\s\,]+")
+$modulesOnlyCore = @("CompletionPredictor") + ($modulesOnlyCore -split "[\s\,]+")
 
+$textToProfile = @{
+    ModuleName1 = "One Line Text"
+    ModuleName2 = "Multiline `r`nText"
+}
+
+Write-Host "Theme: " -NoNewline; Write-Host $theme -ForegroundColor Magenta
+Write-Host "Fonts: " -NoNewline; Write-Host $fonts -ForegroundColor Magenta
+Write-Host "Scripts: " -NoNewline; Write-Host $scripts -ForegroundColor Magenta
+Write-Host "Modules: " -NoNewline; Write-Host "$modulesNoImport $modules" -ForegroundColor Magenta
+
+if ([Environment]::Is64BitProcess -ne [Environment]::Is64BitOperatingSystem) {
+    Write-Host "!!!   Разрядность Операционной Системы НЕ СОВПАДАЕТ с разрядностью Центрального Процессора   !!!" -ForegroundColor White -BackgroundColor Red
+    Start-Sleep -Seconds 5
+}
 
 function Write-HostCenter {
     param($Message)
     Write-Host ("{0}{1}" -f (' ' * (([Math]::Max(0, $Host.UI.RawUI.BufferSize.Width / 2) - [Math]::Floor($Message.Length / 2)))), $Message) @args
 }
 
-Write-Host "Theme: " -NoNewline; Write-Host "$theme" -ForegroundColor Magenta
-Write-Host "Fonts: " -NoNewline; Write-Host "$fonts" -ForegroundColor Magenta
-Write-Host "Modules: " -NoNewline; Write-Host "$modules" -ForegroundColor Magenta
+function Edit-Profile {
+    param (
+        [Parameter(Mandatory = $true)][String]$ProfilePath,
+        [AllowEmptyString()]$SearchPattern,
+        [AllowEmptyString()]$Text
+    )
 
-if ([Environment]::Is64BitProcess -ne [Environment]::Is64BitOperatingSystem) {
-    Write-HostCenter "!!!   Разрядность Операционной Системы НЕ СОВПАДАЕТ с разрядностью Центрального Процессора   !!!" -ForegroundColor White -BackgroundColor Red
-    Start-Sleep -Seconds 5
+    $Text = $Text -Replace "[ \t]+", " "
+    $SearchPattern = $SearchPattern -Replace "[ \t]+", " "
+    # Write-Host "-----------Text $Text"
+    # Write-Host "---SearchPattern $SearchPattern"
+    if (!(Test-Path $ProfilePath)) {
+        New-Item -Path $ProfilePath -ItemType File -Force
+        Write-Host "`nPowerShell profile created: " -ForegroundColor DarkGreen -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+    }
+
+    $selectedText = Select-String -Path $ProfilePath -Pattern $SearchPattern -SimpleMatch | Select-Object -First 1 -ExpandProperty Line
+    # Write-Host "---selectedText $selectedText"
+
+    # add text
+    if ($Text -and !$selectedText) {
+        Add-Content -Path $ProfilePath -Value $Text
+        Write-Host "ADDED in Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+        Write-Host $Text -ForegroundColor DarkGreen
+    }
+    # update text
+    if ($Text -and $selectedText -and ($Text -ne $selectedText)) {
+        (Get-Content "C:\Program Files\PowerShell\7\profile.ps1" -Raw) -Replace [Regex]::Escape($selectedText), $Text -Replace '\s+\r\n+', "`r`n" | Set-Content $ProfilePath
+        Write-Host "UPDATED Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+        Write-Host $Text -ForegroundColor DarkGreen
+    }
+    # remove text
+    if (!$Text -and $selectedText) {
+        (Get-Content $ProfilePath -Raw) -Replace [Regex]::Escape($selectedText), '' -Replace '\s+\r\n+', "`r`n" | Set-Content $ProfilePath
+        Write-Host "REMOVED from Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+        Write-Host $selectedText -ForegroundColor DarkRed
+    }
 }
+
+#set target profile, default PowerShell Core, for PowerShell use argument '-Shell powershell'
+if ($ProfilePath) {
+    if (!(Test-Path -Path $ProfilePath)) {
+        $directoryPath = Split-Path -Path $ProfilePath
+        if (!(Test-Path -Path $directoryPath)) {
+            Write-Host "!!!   Не существует дирректории `"$directoryPath`" для создания файла профиля   !!!" -ForegroundColor White -BackgroundColor Red
+            Start-Sleep -Seconds 5
+            Exit
+        }
+        New-Item -ItemType File -Path $ProfilePath -Force
+    }
+
+    if ($shell -like '*powershell*') {
+        $powershellStatus = $true
+        $powershellProfile = $ProfilePath
+        Write-Host "[argument] PowerShell profile: " -NoNewline
+        Write-Host $powershellProfile -ForegroundColor Yellow
+    }
+    else {
+        $pwshStatus = $true
+        $pwshProfile = $ProfilePath
+        Write-Host "[argument] PowerShell Core profile: " -NoNewline
+        Write-Host $pwshProfile -ForegroundColor Yellow
+    }
+}
+Set-ExecutionPolicy RemoteSigned -Force
+# Register-PSRepository -Default -ErrorAction Ignore -InstallationPolicy Trusted
 
 
 ###  Install winget  ###
-#Write-HostCenter "Installing package manager WinGet..." -ForegroundColor Cyan
-#Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force
-#Install-Script -Name winget-install -Scope AllUsers
-#winget-install -ForceClose
+Write-HostCenter "Installing package manager WinGet..." -ForegroundColor Cyan
+# Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force
+# Install-Script -Name winget-install -Scope AllUsers -Force
+# winget-install -ForceClose -Force
 
 
 ###  Install Powershell Core  ###
 #Write-HostCenter "Installing PowerShell Core..." -ForegroundColor Cyan
 #winget install --id=Microsoft.Powershell --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+
+#detect PowerShell
+if ((Get-Command -Name powershell -ErrorAction SilentlyContinue) -and !$ProfilePath) {
+    $powershellStatus = $true
+    $powershellProfileAllUsersAllHosts = powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts'
+    $powershellProfile = $powershellProfileAllUsersAllHosts
+    #$powershellProfile = powershell -NoProfile -Command '$PROFILE.CurrentUserCurrentHost'
+    Write-Host "==============  detect PowerShell  ==============" -ForegroundColor Green -BackgroundColor Black
+    Write-Host "PowerShell profile AllUsersAllHosts: " -NoNewline; Write-Host $powershellProfile -ForegroundColor Yellow
+    (powershell -NoProfile -Command '$PSVersionTable')
+}
+#detect PowerShell Core
+if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
+    $pwshStatus = $true
+    $pwshProfileAllUsersAllHosts = pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts'
+    $pwshProfile = $pwshProfileAllUsersAllHosts
+    #$pwshProfile = pwsh -NoProfile -Command '$PROFILE.CurrentUserCurrentHost'
+    Write-Host "==============  detect PowerShell Core  ==============" -ForegroundColor Green -BackgroundColor Black
+    Write-Host "PowerShell Core profile AllUsersAllHosts: " -NoNewline; Write-Host $pwshProfile -ForegroundColor Yellow
+    (pwsh -NoProfile -Command '$PSVersionTable')
+}
+
+#install PSResourceGet
+if ($powershellStatus) {
+    Write-Host "PowerShell install " -ForegroundColor Cyan -NoNewline; Write-Host 'Microsoft.PowerShell.PSResourceGet' -ForegroundColor Blue
+    powershell -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowClobber -Force'
+    powershell -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowClobber -Force -Verbose'
+}
+if ($pwshStatus) {
+    Write-Host "PowerShell Core install " -ForegroundColor Cyan -NoNewline; Write-Host 'Microsoft.PowerShell.PSResourceGet' -ForegroundColor Blue
+    pwsh -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force'
+    pwsh -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force -Verbose'
+    # pwsh -NoProfile -Command 'Install-PSResource Microsoft.PowerShell.PSResourceGet -Scope AllUsers -Prerelease -AcceptLicense -Reinstall -Verbose'
+    if (($env:Path -split ';') -notcontains "$env:PROGRAMFILES\PowerShell\Scripts") {
+        $env:PATH += ";$env:PROGRAMFILES\PowerShell\Scripts"
+        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+    }
+}
+Set-PSResourceRepository -Name PSGallery -Trusted
+# Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
 
 # if ([Environment]::Is64BitOperatingSystem) {
 #     # Invoke-Command { reg import '.\Powershell7 Add 64-Bit Context Menu On 64-Bit Windows.reg' *>&1 } | Out-Null
@@ -86,54 +199,6 @@ if ([Environment]::Is64BitProcess -ne [Environment]::Is64BitOperatingSystem) {
 #     Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_folder_pwsh_x32.reg"
 #     reg import "$env:TEMP/context_folder_pwsh_x32.reg" *>$null
 # }
-
-#if needs change only target profile, argument 'powershell' - PowerShell
-if ($ProfilePath) {
-    if (!(Test-Path -Path $ProfilePath) ) {
-        $directoryPath = Split-Path -Path $ProfilePath
-        if (!(Test-Path -Path $directoryPath)) {
-            Write-HostCenter "!!!   Не существует дирректории `"$directoryPath`" для создания файла профиля   !!!" -ForegroundColor White -BackgroundColor Red
-            Start-Sleep -Seconds 5
-            Exit
-        }
-        New-Item -ItemType File -Path $ProfilePath -Force
-    }
-
-    if ($shell -like '*powershell*') {
-        $powershellStatus = $true
-        $powershellProfile = $ProfilePath
-        Write-Host "Targeted PowerShell profile: " -NoNewline
-        Write-Host $powershellProfile -ForegroundColor Yellow
-    }
-    else {
-        $pwshStatus = $true
-        $pwshProfile = $ProfilePath
-        Write-Host "Targeted PowerShell Core profile: " -NoNewline
-        Write-Host $pwshProfile -ForegroundColor Yellow
-    }
-}
-
-#detect PowerShell
-if ((Get-Command -Name powershell -ErrorAction SilentlyContinue) -and !$ProfilePath) {
-    $powershellStatus = $true
-    $powershellProfileAllUsersAllHosts = powershell.exe -Command '$PROFILE.AllUsersAllHosts'
-    $powershellProfile = $powershellProfileAllUsersAllHosts
-    #$powershellProfile = powershell.exe -Command '$PROFILE.CurrentUserCurrentHost'
-    Write-Host "==============  detect PowerShell  ==============" -ForegroundColor Green -BackgroundColor Black
-    Write-Host "PowerShell profile: " -NoNewline; Write-Host $powershellProfile -ForegroundColor Yellow
-    (powershell.exe -Command '$PSVersionTable')
-}
-
-#detect PowerShell Core
-if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
-    $pwshStatus = $true
-    $pwshProfileAllUsersAllHosts = pwsh.exe -Command '$PROFILE.AllUsersAllHosts'
-    $pwshProfile = $pwshProfileAllUsersAllHosts
-    #$pwshProfile = pwsh.exe -Command '$PROFILE.CurrentUserCurrentHost'
-    Write-Host "==============  detect PowerShell Core  ==============" -ForegroundColor Green -BackgroundColor Black
-    Write-Host "PowerShell Core profile: " -NoNewline; Write-Host $pwshProfile -ForegroundColor Yellow
-    (pwsh.exe -Command '$PSVersionTable')
-}
 
 
 ###  Install Microsoft Edge WebView2 Runtime  ###
@@ -227,16 +292,19 @@ if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
 #iex "& {$(irm https://raw.githubusercontent.com/scoopinstaller/install/master/install.ps1)} -RunAsAdmin"
 #scoop bucket add extras
 
+
 ###  Install curl, wget, aria2   ###
 #scoop install curl --global
 #scoop install wget --global
 #scoop install aria2 --global
+
 
 ###  Install Clink for cmd.exe  ###
 #Write-HostCenter "Installing Clink autocomplit tool for cmd.exe: " -NoNewline -ForegroundColor Cyan
 #Write-Host "https://chrisant996.github.io/clink" -ForegroundColor Yellow
 #scoop install clink --global
 #cmd.exe /c "clink autorun install -a"
+
 
 ###  Install NodeJS  ###
 #Write-HostCenter "Installing NodeJS..." -ForegroundColor Cyan
@@ -261,77 +329,53 @@ if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
 
 ###  Install Pragtical Editor  ###
 # if ([Environment]::Is64BitOperatingSystem) {
-#     # Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
-#     scoop install pragtical --global
-    scoop shim add p 'pragtical' --global
-    scoop shim add pwshconf 'pragtical' '$(pwsh.exe -Command "$PROFILE.AllUsersAllHosts")' --global
+# Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
+# scoop install pragtical --global
+# if (($env:Path -split ';') -notcontains "$env:PROGRAMDATA\scoop\apps\pragtical\current") {
+#     $env:PATH += ";$env:PROGRAMDATA\scoop\apps\pragtical\current"
+#     [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+# }
+# scoop shim add p 'pragtical' --global
+# scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+# scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
 
-#     scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
-#     # $pragticalDataFolder = [Environment]::GetFolderPath('CommonApplicationData') + "\scoop\apps\pragtical\current\data"
-#     ppm purge --force
-#     ppm update --assume-yes --progress
-#     #ppm install plugin_manager --assume-yes --progress
-#     #ppm install language* --assume-yes --progress
-#     #ppm color install * --assume-yes --progress
-#     #ppm install lsp lsp_snippets snippets --assume-yes --progress
-#     ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress
+# scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
+# ppm purge --force
+# $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
+# ppm install plugin_manager --assume-yes --progress
+# ppm install language* --assume-yes --progress
+# ppm color install * --assume-yes --progress
+# ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress
+# #ppm install lsp lsp_snippets snippets --assume-yes --progress
 
-#     ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
-#         datetimestamps editorconfig evergreen endwise eofnewline ephemeral_tabs eval exec exterm extend_selection_line force_syntax formatter `
-#         fontconfig fontpreview gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
-#         keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
-#         profiler rainbowparen recentfiles regexreplacepreview restoretabs scalestatus scm selectionhighlight smartopenselected smoothcaret `
-#         sort sortcss spellcheck sticky_scroll su_save svg_screenshot tab_switcher tabnumbers terminal texcompile titleize `
-#         todotreeview togglesnakecamel treeview-extender typingspeed wordcount --assume-yes --progress
+# ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
+#     datetimestamps editorconfig endwise eofnewline ephemeral_tabs eval evergreen exec extend_selection_line exterm force_syntax formatter `
+#     gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
+#     keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
+#     profiler rainbowparen recentfiles regexreplacepreview restoretabs `
+#     scalestatus selectionhighlight smartopenselected smoothcaret sort sortcss spellcheck sticky_scroll su_save svg_screenshot `
+#     tab_switcher tabnumbers terminal texcompile titleize todotreeview togglesnakecamel treeview-extender typingspeed wordcount `
+#     --assume-yes --progress
 
-#     ppm upgrade --assume-yes --progress
+# ppm upgrade --assume-yes
 # }
 
 
 ###  Install oh-my-posh  ###
-#Write-HostCenter "Installing oh-my-posh..." -ForegroundColor Cyan
-#winget install $poshName --disable-interactivity --accept-source-agreements --accept-package-agreements
+# Write-HostCenter "Installing oh-my-posh..." -ForegroundColor Cyan
+# winget install $poshName --disable-interactivity --accept-source-agreements --accept-package-agreements
+
+#oh-my-posh configuration
+$poshLine = "oh-my-posh init pwsh --config ""$env:POSH_THEMES_PATH\$($theme)"" | Invoke-Expression"
+if ($powershellStatus) {
+    Edit-Profile -ProfilePath $powershellProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh"
+}
+if ($pwshStatus) {
+    Edit-Profile -ProfilePath $pwshProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh"
+}
 
 
 ###  Powershell Enhancement  ###
-function Edit-Profile {
-    param (
-        [Parameter(Mandatory = $true)][String]$ProfilePath,
-        [AllowEmptyString()]$SearchPattern,
-        [AllowEmptyString()]$Text
-    )
-    $Text = $Text -Replace "[ \t]+", " "
-    $SearchPattern = $SearchPattern -Replace "[ \t]+", " "
-    Write-Host "---Text $Text"
-    Write-Host "---SearchPattern $SearchPattern"
-    if (!(Test-Path $ProfilePath)) {
-        New-Item -Path $ProfilePath -ItemType File -Force
-        Write-Host "`nPowerShell profile created: " -ForegroundColor DarkGreen -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
-    }
-
-    # $selectedText = Get-Content $ProfilePath | Select-String -Pattern $SearchPattern -SimpleMatch
-    $selectedText = Select-String -Path $ProfilePath -Pattern $SearchPattern -SimpleMatch | Select-Object -First 1 -ExpandProperty Line
-    Write-Host "---selectedText $selectedText"
-    # add text
-    if ($Text -and !$selectedText) {
-        Add-Content -Path $ProfilePath -Value $Text
-        Write-Host "Added Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
-        Write-Host $Text -ForegroundColor DarkGreen
-    }
-    # update text
-    if ($Text -and $selectedText -and ($Text -ne $selectedText)) {
-        (Get-Content $ProfilePath -Raw) -Replace "$selectedText", "$Text" -Replace "\n{3,}", "\n" | Set-Content $ProfilePath
-        Write-Host "Updated Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
-        Write-Host $Text -ForegroundColor DarkGreen
-    }
-    # remove text
-    if (!$Text -and $selectedText) {
-        (Get-Content $ProfilePath -Raw) -Replace "$selectedText", "" -Replace "\n{3,}", "\n" | Set-Content $ProfilePath
-        Write-Host "Removed in Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
-        Write-Host $selectedText -ForegroundColor DarkRed
-    }
-}
-
 #disable restricted PowerShell language mode
 # Remove-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' __PSLockdownPolicy 2>$null
 
@@ -366,79 +410,88 @@ if ($pwshStatus) {
     Edit-Profile -ProfilePath $pwshProfile -Text $fixWhereCommand -SearchPattern $fixWhereCommand
 }
 
-
-Write-Host "`nInstalling modules...:  " -ForegroundColor Cyan -NoNewline; Write-Host "$modules $modulesNoImport" -ForegroundColor Green
-Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
-Get-PSRepository
-
-foreach ($moduleName in $modules) {
-
-    if ($powershellStatus) {
-        Write-Host "`nInstall module in PowerShell: $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        powershell.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -Force"
-        if ($?) {
-            #add import module to profile
-            $moduleLine = "Import-Module -Name $moduleName"
-            Edit-Profile -ProfilePath $powershellProfile -Text $moduleLine -SearchPattern "Import-Module -Name $moduleName"
-        }
-    }
+Write-Host "`nInstalling scripts: " -ForegroundColor Cyan -NoNewline; Write-Host "$scripts" -ForegroundColor Blue
+foreach ($scriptName in $scripts) {
 
     if ($pwshStatus) {
-        Write-Host "`nInstall module in PowerShell Core: $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -AllowPrerelease -Force"
-        if ($?) {
-            #add import module to profile
-            $moduleLine = "Import-Module -Name $moduleName"
-            Edit-Profile -ProfilePath $pwshProfile -Text $moduleLine -SearchPattern "Import-Module -Name $moduleName"
-        }
+        Write-Host "`nInstall script in PowerShell Core: $scriptName" -ForegroundColor White -BackgroundColor Magenta
+        pwsh -NoProfile -Command "Install-PSResource -Name $scriptName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall"
+    }
+
+    if ($powershellStatus) {
+        Write-Host "`nInstall script in PowerShell: $scriptName" -ForegroundColor White -BackgroundColor Magenta
+        powershell -NoProfile -Command "Install-PSResource -Name $scriptName -Scope AllUsers -AcceptLicense -Reinstall"
     }
 }
 
+Write-Host "`nInstalling modules: " -ForegroundColor Cyan -NoNewline; Write-Host "$modulesNoImport" -ForegroundColor Blue
 foreach ($moduleName in $modulesNoImport) {
-
-    if ($powershellStatus) {
-        Write-Host "`nInstall module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        powershell.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -Force"
-    }
 
     if ($pwshStatus) {
         Write-Host "`nInstall module in PowerShell Core:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh.exe -Command "Install-Module -Name $moduleName -Scope AllUsers -AllowClobber -AllowPrerelease -Force"
+        pwsh -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall"
     }
-}
 
-foreach ($scriptName in $scripts) {
+    if ($modulesOnlyCore -contains $moduleName) {continue}
 
     if ($powershellStatus) {
-        Write-Host "`nInstall script in PowerShell:  $scriptName" -ForegroundColor White -BackgroundColor Magenta
-        powershell.exe -Command "Install-Script -Name $scriptName -Scope AllUsers -Force"
+        Write-Host "`nInstall module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
+        powershell -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -AcceptLicense -Reinstall"
     }
+}
+
+Write-Host "`nInstalling modules with import to Profile: " -ForegroundColor Cyan -NoNewline; Write-Host "$modules" -ForegroundColor Blue
+foreach ($moduleName in $modules) {
 
     if ($pwshStatus) {
-        Write-Host "`nInstall script in PowerShell Core:  $scriptName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh.exe -Command "Install-Script -Name $scriptName -Scope AllUsers -Force"
+        Write-Host "`nInstall module in PowerShell Core: $moduleName" -ForegroundColor White -BackgroundColor Magenta
+        # Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue
+        pwsh -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall"
+        if ($?) {
+            switch ($moduleName) {
+                "modulname" {
+                    $moduleText = $textToProfile[$moduleName]
+                }
+                Default {
+                    $moduleText = "Import-Module -Name $moduleName"
+                }
+            }
+            Edit-Profile -ProfilePath $pwshProfile -Text $moduleText -SearchPattern "Import-Module -Name $moduleName"
+        }
     }
-}
 
+    if ($modulesOnlyCore -contains $moduleName) {continue}
 
-#oh-my-posh configuration
-$poshLine = "oh-my-posh init pwsh --config ""$env:POSH_THEMES_PATH\$($theme)"" | Invoke-Expression"
-if ($powershellStatus) {
-    # poshConfiguration -ProfilePath $powershellProfile
-    Edit-Profile -ProfilePath $powershellProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh"
-}
-#oh-my-posh configuration PowerShell Core
-if ($pwshStatus) {
-    # poshConfiguration -ProfilePath $pwshProfile
-    Edit-Profile -ProfilePath $pwshProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh"
+    if ($powershellStatus) {
+        Write-Host "`nInstall module in PowerShell: $moduleName" -ForegroundColor White -BackgroundColor Magenta
+        # Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue
+        powershell -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -AcceptLicense -Reinstall"
+        if ($?) {
+            switch ($moduleName) {
+                "ModulName" {
+                    $moduleText = $textToProfile[$moduleName]
+                }
+                Default {
+                    $moduleText = "Import-Module -Name $moduleName"
+                }
+            }
+            Edit-Profile -ProfilePath $powershellProfile -Text $moduleText -SearchPattern "Import-Module -Name $moduleName"
+        }
+    }
 }
 
 
 ###  Install Font  ###
 Write-HostCenter "`nInstalling Font..." -ForegroundColor Cyan
 foreach ($font in $fonts) {
-    if ($font -like "IBMPlexMono") {$font ="BlexMonoNerdFont"}
-    $installedFonts = Get-ChildItem -Path "C:\Windows\Fonts" | Where-Object { $_.Name -like "$font*" }
+    switch ($font) {
+        "IBMPlexMono" {
+            $installedFonts = Get-ChildItem -Path "C:\Windows\Fonts" | Where-Object { $_.Name -like "BlexMonoNerdFont*" }
+        }
+        Default {
+            $installedFonts = Get-ChildItem -Path "C:\Windows\Fonts" | Where-Object { $_.Name -like "$font*" }
+        }
+    }
     if ($installedFonts) {
         Write-Host "Font '$font' is already installed."
     }
@@ -458,27 +511,34 @@ Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Conso
 Write-Host; Write-Host "Reloading Profile..." -ForegroundColor Cyan
 . $PROFILE
 
-Write-HostCenter "Installation Complete." -ForegroundColor Green
-Write-Host
+Write-HostCenter "Installation Complete." -ForegroundColor Green; Write-Host
 
-Write-Host "Installed Modules and Scripts: " -ForegroundColor White -BackgroundColor Magenta
-Get-InstalledModule
-Get-InstalledScript
+if ($powershellStatus) {
+    Write-Host "Installed Modules and Scripts PowerShell: " -ForegroundColor White -BackgroundColor Magenta
+    (powershell -NoProfile -Command "Get-InstalledPSResource -Scope AllUsers | Format-Table Name, InstalledLocation")
+}
+
+if ($pwshStatus) {
+    Write-Host "Installed Modules and Scripts PowerShell Core: " -ForegroundColor White -BackgroundColor Magenta
+    (pwsh -NoProfile -Command "Get-InstalledPSResource -Scope AllUsers | Format-Table Name, InstalledLocation")
+}
 
 winfetch -ShowDisks * -cpustyle 'bar' -memorystyle 'bartext'  -diskstyle 'bartext' -batterystyle 'bartext'
 
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "!!!   Не забудьте поменять шрифт своего терминала на:   !!!" -ForegroundColor DarkRed
-Write-HostCenter "!!!     JetBrainsMono NFM Medium     font-size: 16      !!!" -ForegroundColor DarkRed
-Write-HostCenter "!!!     или MesloLGS Nerd Font Mono  font-size: 16      !!!" -ForegroundColor DarkRed
-Write-HostCenter "!!!     или BlexMono Nerd Font Mono  font-size: 18      !!!" -ForegroundColor DarkRed -NoNewline
+Write-HostCenter "!!!   Не забудьте поменять шрифт своего терминала на:   !!!" -ForegroundColor Yellow
+Write-HostCenter "!!!     JetBrainsMono NFM Medium     font-size: 16      !!!" -ForegroundColor Yellow
+Write-HostCenter "!!!     или MesloLGS Nerd Font Mono  font-size: 16      !!!" -ForegroundColor Yellow
+Write-HostCenter "!!!     или BlexMono Nerd Font Mono  font-size: 18      !!!" -ForegroundColor Yellow -NoNewline
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor; [ctrl]+[shift]+[P] -> Plugin Manager: Show;" -ForegroundColor DarkYellow
+Write-HostCenter "> powershellconf - редактировать профиль AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
+Write-HostCenter "> pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
+Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
 
 Write-Host; Write-HostCenter "Press any key to Update-Help" -ForegroundColor Gray
 $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") *>$null
 
-#update help manuals for commandlets
+#update help manuals for command
 # Update-Help 2>$null
 
 Exit

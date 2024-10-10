@@ -64,6 +64,8 @@
 	Через scoop создан «p» shim link на Pragtical, запуск из терминала:
 	▶ p - откроет редактор с файлами из прошлой сесии
 	▶ p FileName - откроет существующий файл или создаст новую вкладку
+	▶ powershellconf - откроет профиль AllUsersAllHosts PowerShell
+	▶ pwshconf - откроет профиль AllUsersAllHosts PowerShell Core
 	
 	▼ Горячии клавиши ▼
 	https://pragtical.dev/docs/user-guide/keymap
@@ -74,7 +76,6 @@
 	[ctrl] + [.] - открыть console
 	[ctrl] + [shift] + [.] - запустить команду в console
 	 [alt] + [T] - открыть terminal 
-	[ctrl] + [shift] + [space] - открыть внешний terminal
 	 [alt] + [🡸] - вернуться к предыдущей позиции 
 	 [alt] + [🡺] - вернуться последней позиции
 	[ctrl] + [enter] - открыть url ссылку в браузере
