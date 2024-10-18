@@ -13,6 +13,7 @@
 	
 	WinGet, Scoop - пакетные менеджеры
 	PowerShell Core - https://github.com/PowerShell/PowerShell 
+	Microsoft Edge WebView2 Runtime
 	Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable
 	#Microsoft Visual Studio C++ x64/x86 Build Tools - https://visualstudio.microsoft.com/ru/downloads/#build-tools-for-visual-studio-2022
 	Microsoft .NET Desktop 3.1/5/6/7/8/Preview
@@ -25,47 +26,69 @@
 	Clink - https://chrisant996.github.io/clink
 	NodeJS - https://nodejs.org
 	Python - https://python.org
+	PHP - https://windows.php.net
 	MinGW - https://winlibs.com
 	WinFetch - https://github.com/lptstr/winfetch
+	Zoxide - https://github.com/ajeetdsouza/zoxide
+	micro - https://micro-editor.github.io
 	Pragtical - https://pragtical.dev для быстрого редактирования конфигов, language source файлов
 	oh-my-posh - https://ohmyposh.dev быстрый движок тем для любой оболочки PowerShell
 	wget, curl - web network утилиты
-	PowerShell scripts, modules - улучшают и расширяют функциональность терминала
+	PowerShell scripts, modules - улучшают и расширяют функциональность PowerShell
 	
 	☑ Запуск скрипта можно осуществить различными способами:
 
 	Самостоятельно определит профили PowerShell, PowerShell Core из переменных окружения:
-	▶ powershell install_advanced_user_environment.ps1
-	▶ pwsh install_advanced_user_environment.ps1
+	▶ powershell -File install_advanced_user_environment.ps1 [-arg1 -arg2 ...]
+	▶ pwsh -File install_advanced_user_environment.ps1 [-arg1 -arg2 ...]
 	
 	С параметрами:
-	▶ powershell install_advanced_user_environment.ps1 -Theme Theme -Fonts Font1,Font2,...
+	▶ powershell -File install_advanced_user_environment.ps1 -Theme Theme -Fonts Font1,Font2,...
 	
-	▶ powershell install_advanced_user_environment.ps1 -Modules Module1,Module2,... 
+	▶ powershell -File install_advanced_user_environment.ps1 -Scripts Script1,Script2,...
 													   -ModulesNoImport Module3,Module4,...
-													   -Scripts Script1,Script2,...
-	
-	▶ powershell install_advanced_user_environment.ps1 -ProfilePath "$PROFILE" -Shell "powershell"
+													   -Modules Module1,Module2,... 
 	
 	-Theme - название темы https://ohmyposh.dev/docs/themes
 	-Fonts - имена семейства шрифтов Nerd Fonts. https://ohmyposh.dev/docs/installation/fonts
-	-Modules - установить модули, добавить импорты в профиль. https://powershellgallery.com
-	-ModulesNoImport - установить модули, не добавлять импорты в профиль. https://powershellgallery.com
 	-Scripts - имена скриптов. https://powershellgallery.com
+	-ModulesNoImport - установить модули, не добавлять импорты в профиль. https://powershellgallery.com
+	-Modules - установить модули, добавить импорты в профиль. https://powershellgallery.com
+	-ResourceOnlyCore - выбрать имена скриптов, модулей только для PowerShell Core
+
+	С указанием конкретного профиля:
+	▶ powershell -File install_advanced_user_environment.ps1 -ProfilePath "$PROFILE" -Shell "powershell"
+	
 	-ProfilePath - полный путь к конкретному профилю и работать только с ним
 	-Shell - применяется, если указан -ProfilePath, по умолчанию тип профиля PowerShell Core,
 	         для профиля PowerShell нужно указать значение параметра "powershell"
 	
-	Если скрипт исполняется без административных прав, то самостоятельно запросит права и запустить powershell
-	с опцией -NoProfile.
+	Скрипт исполняется без административных прав, самостоятельно запросит права и запустить powershell
+	с опцией -NoProfile, что бы не загружать модули прописанные в профиле.
+	Или запустить под администраивными правами без профиля:
+	▶ powershell -NoProfile -File install_advanced_user_environment.ps1 [-arg1 -arg2 ...]
+	▶ pwsh -NoProfile -File install_advanced_user_environment.ps1 [-arg1 -arg2 ...]
+
+	Что бы не указывать параметры их можно переопределить в разделе ##### Init #####.
+	Скрипт поддерживает установку, обновление, удаление скриптов, модулей.
+	Добавление в профиль multiline конфигурационных строк. 
+	Назначить модули/скрипты для установки только для PowerShell Core.
+
+	☑ psedit - терминальный редактор ps скриптов, c intellisense и подсветкой синтаксиса.
 	
+	[F5] - выполнить скрипт
+	[Ctrl] + [Shift] + [F5] - выполнить скрипт вне редактора
+	[F8] - выполнить, выделенные строки
+	[Ctrl] + [Shift] + [R] - форматировать текст
+	[Ctrl] + [Q] - exit	
+
 	☑ Pragtical Editor
 	
 	Через scoop создан «p» shim link на Pragtical, запуск из терминала:
 	▶ p - откроет редактор с файлами из прошлой сесии
 	▶ p FileName - откроет существующий файл или создаст новую вкладку
-	▶ powershellconf - откроет профиль AllUsersAllHosts PowerShell
-	▶ pwshconf - откроет профиль AllUsersAllHosts PowerShell Core
+	▶ powershellconf - редактировать профиль AllUsersAllHosts PowerShell
+	▶ pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core
 	
 	▼ Горячии клавиши ▼
 	https://pragtical.dev/docs/user-guide/keymap

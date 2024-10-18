@@ -1,106 +1,118 @@
-<#
+ï»¿<#
 .NOTES
- A script to automatically install or update a typical advanced users software environment.
- https://github.com/maksimaliabyshev
- Version 1.0 by Maksim Aliabyshev
+A script to automatically install or update a typical advanced users software environment.
+https://github.com/maksimaliabyshev
+Version 1.0 by Maksim Aliabyshev
 #>
 
 param(
-    [string]$theme = "quick-term.omp.json",
+    [string]$theme = "powerlevel10k_rainbow",
     [string[]]$fonts = @(),
-    [string]$poshName = "JanDeDobbeleer.OhMyPosh",
     [string[]]$scripts = @(),
     [string[]]$modulesNoImport = @(),
     [string[]]$modules = @(),
-    [string[]]$modulesOnlyCore = @(),
+    [string[]]$resourceOnlyCore = @(),
     [string]$ProfilePath,
-    [string]$shell,
-    [switch]$Elevated,
-    $NoExit
+    [string]$shell
 )
 
-
-###  Elevate Credentials  ###
-# debugging command line arguments passing
-# if (-not [string]::IsNullOrEmpty($PSBoundParameters)) {
-#     $params = ($PSBoundParameters.GetEnumerator() | ForEach-Object { "-$($_.Key) `'$($_.Value)`'" }) -join ' '
-#     Write-Host '$params: ', $params
-# }
-
+##### START ELEVATE TO ADMIN #####
+if (-not [string]::IsNullOrEmpty($PSBoundParameters)) {
+    $params = ($PSBoundParameters.GetEnumerator() | ForEach-Object { "-$($_.Key) $($_.Value -split ' ' -join ',')" }) -join ' '
+}
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
     if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
-        $CommandLine = "cd `'$pwd`'; $($MyInvocation.Line)" -replace '"', "`'"
-        Write-Host "CommandLine: ", $CommandLine
-        Write-Host "MyInvocation.MyCommand.Path: ", $MyInvocation.MyCommand.Path
-        Start-Process powershell -Verb RunAs -ArgumentList "-NoExit -NoProfile -Command $CommandLine"
+        Start-Process powershell -Verb RunAs -ArgumentList ("-NonInteractive -NoProfile -NoExit -File `"$($MyInvocation.MyCommand.Definition)`" $params")
         Exit $LASTEXITCODE
     }
 }
+Set-Location (Split-Path -Parent $MyInvocation.MyCommand.Definition)
+##### END ELEVATE TO ADMIN #####
 
 
-###  Init  ###
-$fonts = @("JetBrainsMono", "Meslo", "IBMPlexMono") + ($fonts -split "[\s\,]+")
+#####  Init  #####
+$fonts = @("JetBrainsMono", "Meslo") + ($fonts -split "[\s\,]+")
 $scripts = @("Invoke-Obliteration") + ($scripts -split "[\s\,]+")
-$modulesNoImport = @("PackageManagement", "Posh-SSH") + ($modulesNoImport -split "[\s\,]+")
-$modules = @("Posh", "posh-git", "Terminal-Icons", "scoop-completion", "CompletionPredictor") + ($modules -split "[\s\,]+")
-$modulesOnlyCore = @("CompletionPredictor") + ($modulesOnlyCore -split "[\s\,]+")
+$modulesNoImport = @("PackageManagement", "psedit", "PSScriptAnalyzer", "Posh-SSH", "PSScriptTools", "FindOpenFile", "CodeConversion") + ($modulesNoImport -split "[\s\,]+")
+$modules = @("Posh", "posh-git", "Terminal-Icons", "scoop-completion", "plinqo", "CompletionPredictor") + ($modules -split "[\s\,]+")
 
+$resourceOnlyCore = @("CompletionPredictor") + ($resourceOnlyCore -split "[\s\,]+")
 $textToProfile = @{
-    ModuleName1 = "One Line Text"
-    ModuleName2 = "Multiline `r`nText"
+    # ModuleName1           = "One Line Text"
+    # ModuleName2           = "Multiline`r`nText"
+    # ModuleName3           = "remove"  #remove module
+    # 'Invoke-Obliteration' = "remove"  #remove script
+    # 'Posh-SSH'            = "remove"  #remove moduleNoImport
+    CompletionPredictor = "Import-Module -Name CompletionPredictor`r`nSet-PSReadLineOption -PredictionSource HistoryAndPlugin"
+}
+$searchPatternInProfile = @{
+    # ModuleName1       = "One Line*"
+    # ModuleName2       = "Multi*`r`n*Any T??t*"
+    # ModuleName3       = "*ModuleName3*`r`n*Any configuration text...*"  #delete the rows of the removed module
+    CompletionPredictor = "*CompletionPredictor*`r`n*HistoryAndPlugin*"
 }
 
 Write-Host "Theme: " -NoNewline; Write-Host $theme -ForegroundColor Magenta
 Write-Host "Fonts: " -NoNewline; Write-Host $fonts -ForegroundColor Magenta
 Write-Host "Scripts: " -NoNewline; Write-Host $scripts -ForegroundColor Magenta
-Write-Host "Modules: " -NoNewline; Write-Host "$modulesNoImport $modules" -ForegroundColor Magenta
-
-if ([Environment]::Is64BitProcess -ne [Environment]::Is64BitOperatingSystem) {
-    Write-Host "!!!   Ðàçðÿäíîñòü Îïåðàöèîííîé Ñèñòåìû ÍÅ ÑÎÂÏÀÄÀÅÒ ñ ðàçðÿäíîñòüþ Öåíòðàëüíîãî Ïðîöåññîðà   !!!" -ForegroundColor White -BackgroundColor Red
-    Start-Sleep -Seconds 5
-}
+Write-Host "ModulesNoImport: " -NoNewline; Write-Host "$modulesNoImport" -ForegroundColor Magenta
+Write-Host "Modules: " -NoNewline; Write-Host "$modules" -ForegroundColor Magenta
 
 function Write-HostCenter {
     param($Message)
     Write-Host ("{0}{1}" -f (' ' * (([Math]::Max(0, $Host.UI.RawUI.BufferSize.Width / 2) - [Math]::Floor($Message.Length / 2)))), $Message) @args
 }
 
-function Edit-Profile {
+function Update-ContentFile {
     param (
-        [Parameter(Mandatory = $true)][String]$ProfilePath,
-        [AllowEmptyString()]$SearchPattern,
-        [AllowEmptyString()]$Text
+        [Parameter(Mandatory = $true)][String]$Path,
+        [AllowEmptyString()]$Text = @(""),
+        [AllowEmptyString()]$SearchPattern = @(""),
+        [AllowEmptyString()]$FindedLines = @(),
+        [AllowEmptyString()]$FileContent = @()
     )
 
-    $Text = $Text -Replace "[ \t]+", " "
-    $SearchPattern = $SearchPattern -Replace "[ \t]+", " "
-    # Write-Host "-----------Text $Text"
-    # Write-Host "---SearchPattern $SearchPattern"
-    if (!(Test-Path $ProfilePath)) {
-        New-Item -Path $ProfilePath -ItemType File -Force
-        Write-Host "`nPowerShell profile created: " -ForegroundColor DarkGreen -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
+    $Text = ($Text -split '\r?\n').Trim().Split([Environment]::NewLine, [Stringsplitoptions]::RemoveEmptyEntries) #| ForEach-Object { $_.Trim() }
+    $SearchPattern = ($SearchPattern -split '\r?\n').Trim().Split([Environment]::NewLine, [Stringsplitoptions]::RemoveEmptyEntries)
+
+    if (!(Test-Path $Path)) {
+        New-Item -Path $Path -ItemType File -Force
+        Write-Host "`nPowerShell profile created: " -ForegroundColor DarkGreen -NoNewline; Write-Host $Path -ForegroundColor Yellow
     }
 
-    $selectedText = Select-String -Path $ProfilePath -Pattern $SearchPattern -SimpleMatch | Select-Object -First 1 -ExpandProperty Line
-    # Write-Host "---selectedText $selectedText"
+    foreach ($line in (Get-Content -Path $Path)) {
+        $Text + $SearchPattern | ForEach-Object {
+            if ($line -like $_.Trim()) {
+                if (![string]::IsNullOrWhiteSpace($line)) {
+                    $FindedLines += $line
+                }
+                continue
+            }
+        }
+        $FileContent += $line
+    }
+    $diffCompareLines = Compare-Object -ReferenceObject $Text -DifferenceObject $FindedLines;
 
     # add text
-    if ($Text -and !$selectedText) {
-        Add-Content -Path $ProfilePath -Value $Text
-        Write-Host "ADDED in Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
-        Write-Host $Text -ForegroundColor DarkGreen
+    if ($Text -and !$FindedLines) {
+        Add-Content -Path $Path -Value $Text
+        Write-Host "ADDED to Profile: " -NoNewline; Write-Host $Path -ForegroundColor Yellow
+        Write-Host ($Text -join [environment]::NewLine) -ForegroundColor DarkGreen
+        return
     }
     # update text
-    if ($Text -and $selectedText -and ($Text -ne $selectedText)) {
-        (Get-Content "C:\Program Files\PowerShell\7\profile.ps1" -Raw) -Replace [Regex]::Escape($selectedText), $Text -Replace '\s+\r\n+', "`r`n" | Set-Content $ProfilePath
-        Write-Host "UPDATED Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
-        Write-Host $Text -ForegroundColor DarkGreen
+    if ($Text -and $diffCompareLines) {
+        Set-Content -Path $Path -Value $FileContent, $Text
+        Write-Host "UPDATED Profile: " -NoNewline; Write-Host $Path -ForegroundColor Yellow
+        Write-Host ($Text -join [environment]::NewLine) -ForegroundColor DarkGreen
+        return
     }
     # remove text
-    if (!$Text -and $selectedText) {
-        (Get-Content $ProfilePath -Raw) -Replace [Regex]::Escape($selectedText), '' -Replace '\s+\r\n+', "`r`n" | Set-Content $ProfilePath
-        Write-Host "REMOVED from Profile: " -NoNewline; Write-Host $ProfilePath -ForegroundColor Yellow
-        Write-Host $selectedText -ForegroundColor DarkRed
+    if (!$Text -and $FindedLines) {
+        Set-Content -Path $Path -Value $FileContent
+        Write-Host "REMOVED from Profile: " -NoNewline; Write-Host $Path -ForegroundColor Yellow
+        Write-Host ($FindedLines -join [environment]::NewLine) -ForegroundColor DarkRed
+        return
     }
 }
 
@@ -109,7 +121,7 @@ if ($ProfilePath) {
     if (!(Test-Path -Path $ProfilePath)) {
         $directoryPath = Split-Path -Path $ProfilePath
         if (!(Test-Path -Path $directoryPath)) {
-            Write-Host "!!!   Íå ñóùåñòâóåò äèððåêòîðèè `"$directoryPath`" äëÿ ñîçäàíèÿ ôàéëà ïðîôèëÿ   !!!" -ForegroundColor White -BackgroundColor Red
+            Write-Host "!!!   ÐÐµ ÑÑƒÑ‰ÐµÑÑ‚Ð²ÑƒÐµÑ‚ Ð´Ð¸Ñ€Ñ€ÐµÐºÑ‚Ð¾Ñ€Ð¸Ð¸ `"$directoryPath`" Ð´Ð»Ñ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ Ñ„Ð°Ð¹Ð»Ð° Ð¿Ñ€Ð¾Ñ„Ð¸Ð»Ñ   !!!" -ForegroundColor White -BackgroundColor Red
             Start-Sleep -Seconds 5
             Exit
         }
@@ -129,27 +141,27 @@ if ($ProfilePath) {
         Write-Host $pwshProfile -ForegroundColor Yellow
     }
 }
-Set-ExecutionPolicy RemoteSigned -Force
-# Register-PSRepository -Default -ErrorAction Ignore -InstallationPolicy Trusted
+
+(Remove-Item alias:\where -Force) 2>$null
+Register-PSRepository -Default -InstallationPolicy Trusted -ErrorAction Ignore
 
 
-###  Install winget  ###
-Write-HostCenter "Installing package manager WinGet..." -ForegroundColor Cyan
-# Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force
-# Install-Script -Name winget-install -Scope AllUsers -Force
-# winget-install -ForceClose -Force
+#####  Install winget  #####
+Write-Host; Write-HostCenter "Installing package manager WinGet..." -ForegroundColor Cyan
+Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force -ErrorAction SilentlyContinue
+Install-Script -Name winget-install -Scope AllUsers -Force
+winget-install -ForceClose -Force -Verbose
 
 
-###  Install Powershell Core  ###
-#Write-HostCenter "Installing PowerShell Core..." -ForegroundColor Cyan
-#winget install --id=Microsoft.Powershell --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+#####  Install Powershell Core  #####
+Write-Host; Write-HostCenter "Installing PowerShell Core..." -ForegroundColor Cyan
+winget install --id=Microsoft.Powershell --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 #detect PowerShell
 if ((Get-Command -Name powershell -ErrorAction SilentlyContinue) -and !$ProfilePath) {
     $powershellStatus = $true
     $powershellProfileAllUsersAllHosts = powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts'
     $powershellProfile = $powershellProfileAllUsersAllHosts
-    #$powershellProfile = powershell -NoProfile -Command '$PROFILE.CurrentUserCurrentHost'
     Write-Host "==============  detect PowerShell  ==============" -ForegroundColor Green -BackgroundColor Black
     Write-Host "PowerShell profile AllUsersAllHosts: " -NoNewline; Write-Host $powershellProfile -ForegroundColor Yellow
     (powershell -NoProfile -Command '$PSVersionTable')
@@ -159,7 +171,6 @@ if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
     $pwshStatus = $true
     $pwshProfileAllUsersAllHosts = pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts'
     $pwshProfile = $pwshProfileAllUsersAllHosts
-    #$pwshProfile = pwsh -NoProfile -Command '$PROFILE.CurrentUserCurrentHost'
     Write-Host "==============  detect PowerShell Core  ==============" -ForegroundColor Green -BackgroundColor Black
     Write-Host "PowerShell Core profile AllUsersAllHosts: " -NoNewline; Write-Host $pwshProfile -ForegroundColor Yellow
     (pwsh -NoProfile -Command '$PSVersionTable')
@@ -168,63 +179,67 @@ if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
 #install PSResourceGet
 if ($powershellStatus) {
     Write-Host "PowerShell install " -ForegroundColor Cyan -NoNewline; Write-Host 'Microsoft.PowerShell.PSResourceGet' -ForegroundColor Blue
+    powershell -NoProfile -Command 'Install-Module -Name PSReadLine -Scope AllUsers -AllowClobber -Force -ErrorAction SilentlyContinue'
     powershell -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowClobber -Force'
     powershell -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowClobber -Force -Verbose'
+    if (($env:Path -split ';') -notcontains "$env:PROGRAMFILES\WindowsPowerShell\Scripts") {
+        $env:PATH += ";$env:PROGRAMFILES\WindowsPowerShell\Scripts"
+        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+    }
 }
 if ($pwshStatus) {
     Write-Host "PowerShell Core install " -ForegroundColor Cyan -NoNewline; Write-Host 'Microsoft.PowerShell.PSResourceGet' -ForegroundColor Blue
+    pwsh -NoProfile -Command 'Install-Module -Name PSReadLine -Scope AllUsers -AllowClobber -Force -ErrorAction SilentlyContinue'
     pwsh -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force'
     pwsh -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force -Verbose'
-    # pwsh -NoProfile -Command 'Install-PSResource Microsoft.PowerShell.PSResourceGet -Scope AllUsers -Prerelease -AcceptLicense -Reinstall -Verbose'
     if (($env:Path -split ';') -notcontains "$env:PROGRAMFILES\PowerShell\Scripts") {
         $env:PATH += ";$env:PROGRAMFILES\PowerShell\Scripts"
         [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
     }
 }
-Set-PSResourceRepository -Name PSGallery -Trusted
-# Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
+Set-PSResourceRepository -Name PSGallery -Trusted -ErrorAction SilentlyContinue
+# Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
 
-# if ([Environment]::Is64BitOperatingSystem) {
-#     # Invoke-Command { reg import '.\Powershell7 Add 64-Bit Context Menu On 64-Bit Windows.reg' *>&1 } | Out-Null
-#     $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_file_powershell_pwsh_ise.reg"
-#     Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_file_powershell_pwsh_ise.reg"
-#     reg import "$env:TEMP/context_file_powershell_pwsh_ise.reg" *>$null
+if ([Environment]::Is64BitOperatingSystem) {
+    $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_file_powershell_pwsh_ise.reg"
+    Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_file_powershell_pwsh_ise.reg"
+    reg import "$env:TEMP/context_file_powershell_pwsh_ise.reg" *>$null
 
-#     $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_folder_pwsh_x64.reg"
-#     Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_folder_pwsh_x64.reg"
-#     reg import "$env:TEMP/context_folder_pwsh_x64.reg" *>$null
-# }
-# else {
-#     $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_folder_pwsh_x32.reg"
-#     Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_folder_pwsh_x32.reg"
-#     reg import "$env:TEMP/context_folder_pwsh_x32.reg" *>$null
-# }
-
-
-###  Install Microsoft Edge WebView2 Runtime  ###
-#Write-HostCenter "Installing Microsoft Edge WebView2 Runtime..." -ForegroundColor Cyan
-#winget install --id=Microsoft.EdgeWebView2Runtime --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+    $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_folder_pwsh_x64.reg"
+    Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_folder_pwsh_x64.reg"
+    reg import "$env:TEMP/context_folder_pwsh_x64.reg" *>$null
+}
+else {
+    $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_folder_pwsh_x32.reg"
+    Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_folder_pwsh_x32.reg"
+    reg import "$env:TEMP/context_folder_pwsh_x32.reg" *>$null
+}
 
 
-###  Install Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable  ###
-#Write-HostCenter "Installing Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable..." -ForegroundColor Cyan
-#winget install --id=Microsoft.VCRedist.2005.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2005.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2008.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2008.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2010.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2010.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2012.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2012.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2013.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2013.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCLibs.Desktop.14 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2015+.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.VCRedist.2015+.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+#####  Install Microsoft Edge WebView2 Runtime  #####
+Write-Host; Write-HostCenter "Installing Microsoft Edge WebView2 Runtime..." -ForegroundColor Cyan
+winget install --id=Microsoft.EdgeWebView2Runtime --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
-###  Install Microsoft Visual Studio BuildTools  ###
-#Write-HostCenter "Installing Microsoft VisualStudio 2022 BuildTools..." -ForegroundColor Cyan
+#####  Install Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable  #####
+Write-Host; Write-HostCenter "Installing Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable..." -ForegroundColor Cyan
+winget install --id=Microsoft.VCRedist.2005.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2005.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2008.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2008.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2010.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2010.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2012.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2012.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2013.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2013.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCLibs.Desktop.14 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2015+.x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.VCRedist.2015+.x64 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+
+
+#####  Install Microsoft Visual Studio BuildTools  #####
+#Write-Host; Write-HostCenter "Installing Microsoft VisualStudio 2022 BuildTools..." -ForegroundColor Cyan
 #winget install --id=Microsoft.VisualStudio.2022.BuildTools --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # Individual Components: Windows SDK, C++ x64/x86 build tools
 #Start-Process "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" -Wait -PassThru -ArgumentList `
@@ -234,28 +249,28 @@ Set-PSResourceRepository -Name PSGallery -Trusted
 #'--add Microsoft.VisualStudio.Workload.MSBuildTools'
 
 
-###  Install Microsoft .NET Desktop 3.1/5/6/7/8/Preview  ###
-#Write-HostCenter "Installing Microsoft .NET Desktop 3.1/5/6/7/8/Preview..." -ForegroundColor Cyan
-#winget install --id=Microsoft.dotnetRuntime.3-x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.DotNet.DesktopRuntime.3_1 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.dotnetRuntime.5-x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.DotNet.DesktopRuntime.5 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.dotnetRuntime.6-x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.DotNet.DesktopRuntime.6 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.DotNet.DesktopRuntime.7 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.DotNet.DesktopRuntime.8 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.DotNet.DesktopRuntime.Preview --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+#####  Install Microsoft .NET Desktop 3.1/5/6/7/8/Preview  #####
+Write-Host; Write-HostCenter "Installing Microsoft .NET Desktop 3.1/5/6/7/8/Preview..." -ForegroundColor Cyan
+winget install --id=Microsoft.dotnetRuntime.3-x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.DotNet.DesktopRuntime.3_1 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.dotnetRuntime.5-x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.DotNet.DesktopRuntime.5 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.dotnetRuntime.6-x86 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.DotNet.DesktopRuntime.6 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.DotNet.DesktopRuntime.7 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.DotNet.DesktopRuntime.8 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Microsoft.DotNet.DesktopRuntime.Preview --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
-###  Microsoft .NET Framework 2/3/4.5/4@latest  ###
-#Write-HostCenter "Installing Microsoft .NET Framework 2/3..." -ForegroundColor Cyan
-#winget install --id=Microsoft.DotNet.Framework.DeveloperPack.4.5 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=Microsoft.DotNet.Framework.DeveloperPack_4 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#!(Get-WindowsCapability -Online -Name "NetFx3").State -eq "Installed" -and (Enable-WindowsOptionalFeature -Online -FeatureName "NetFx3") >$null
+#####  Microsoft .NET Framework 2/3/4.5/4@latest  #####
+Write-Host; Write-HostCenter "Installing Microsoft .NET Framework 2/3..." -ForegroundColor Cyan
+# winget install --id=Microsoft.DotNet.Framework.DeveloperPack.4.5 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=Microsoft.DotNet.Framework.DeveloperPack_4 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+!(Get-WindowsCapability -Online -Name "NetFx3").State -eq "Installed" -and (Enable-WindowsOptionalFeature -Online -FeatureName "NetFx3") >$null
 
 
-###  Microsoft ASP.NET Core 2/3/5/6/7/8/Preview  ###
-#Write-HostCenter "Installing Microsoft ASP.NET Core 2/3/5/6/7/8/Preview..." -ForegroundColor Cyan
+#####  Microsoft ASP.NET Core 2/3/5/6/7/8/Preview  #####
+#Write-Host; Write-HostCenter "Installing Microsoft ASP.NET Core 2/3/5/6/7/8/Preview..." -ForegroundColor Cyan
 #winget install --id=Microsoft.DotNet.AspNetCore.2_1 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 #winget install --id=Microsoft.DotNet.AspNetCore.3_1 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 #winget install --id=Microsoft.DotNet.AspNetCore.5 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
@@ -265,162 +280,174 @@ Set-PSResourceRepository -Name PSGallery -Trusted
 #winget install --id=Microsoft.DotNet.AspNetCore.Preview --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
-###  Install DirectX Web Installer  ###
-#Write-HostCenter "Installing Microsoft DirectX End-User Runtime Web Installer..." -ForegroundColor Cyan
-#winget install --id=Microsoft.DirectX --silent --disable-interactivity --accept-source-agreements --accept-package-agreements 2>&1>$null
+#####  Install DirectX Web Installer  #####
+#Write-Host; Write-HostCenter "Installing Microsoft DirectX End-User Runtime Web Installer..." -ForegroundColor Cyan
+#winget install --id=Microsoft.DirectX --silent --disable-interactivity --accept-source-agreements --accept-package-agreements 2>$null
 
 
-###  Install OpenJDK JRE 17  ###
-#Write-HostCenter "Installing Java Runtime Environment..." -ForegroundColor Cyan
-#winget install --id=Oracle.JavaRuntimeEnvironment --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=ojdkbuild.openjdk.11.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-#winget install --id=ojdkbuild.openjdk.17.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+#####  Install OpenJDK JRE 17  #####
+Write-Host; Write-HostCenter "Installing Java Runtime Environment..." -ForegroundColor Cyan
+winget install --id=Oracle.JavaRuntimeEnvironment --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=ojdkbuild.openjdk.11.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=ojdkbuild.openjdk.17.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
-###  Install Git   ###
-#Write-HostCenter "Installing Git..." -ForegroundColor Cyan
-#winget install --id=Git.Git --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+#####  Install Git   #####
+Write-Host; Write-HostCenter "Installing Git..." -ForegroundColor Cyan
+winget install --id=Git.Git --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
-###  Install WinFsp  ###
-#Write-HostCenter "Installing WinFsp - supports Windows native, FUSE, .NET and Cygwin file systems..." -ForegroundColor Cyan
-#winget install --id=WinFsp.WinFsp --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+#####  Install WinFsp  #####
+Write-Host; Write-HostCenter "Installing WinFsp - supports Windows native, FUSE, .NET and Cygwin file systems..." -ForegroundColor Cyan
+winget install --id=WinFsp.WinFsp --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
-###  Install Scoop   ###
-#Write-HostCenter "Installing package manager Scoop..." -ForegroundColor Cyan
-#iex "& {$(irm https://raw.githubusercontent.com/scoopinstaller/install/master/install.ps1)} -RunAsAdmin"
-#scoop bucket add extras
+#####  Install Scoop   #####
+Write-Host; Write-HostCenter "Installing package manager Scoop..." -ForegroundColor Cyan
+$env:SCOOP = "$env:PROGRAMDATA\Scoop"
+[Environment]::SetEnvironmentVariable('SCOOP', $env:SCOOP, [EnvironmentVariableTarget]::Machine)
+[Environment]::SetEnvironmentVariable('SCOOP', $env:SCOOP, [EnvironmentVariableTarget]::User)
+if (Test-Path -Path "$env:SCOOP\shims\scoop.ps1") {
+    scoop update
+}
+else {
+    Invoke-Expression "& {$(Invoke-RestMethod get.scoop.sh)} -RunAsAdmin"
+}
+scoop bucket add extras
+scoop update
+scoop cleanup *
 
 
-###  Install curl, wget, aria2   ###
-#scoop install curl --global
-#scoop install wget --global
-#scoop install aria2 --global
+#####  Install curl, wget   #####
+scoop install curl --global
+scoop install wget --global
 
 
-###  Install Clink for cmd.exe  ###
-#Write-HostCenter "Installing Clink autocomplit tool for cmd.exe: " -NoNewline -ForegroundColor Cyan
-#Write-Host "https://chrisant996.github.io/clink" -ForegroundColor Yellow
-#scoop install clink --global
-#cmd.exe /c "clink autorun install -a"
+#####  Install Clink for cmd.exe  #####
+Write-Host; Write-HostCenter "Installing Clink autocomplit tool for cmd.exe" -ForegroundColor Cyan
+scoop install clink --global
+cmd.exe /c "clink autorun install -a"
 
 
-###  Install NodeJS  ###
-#Write-HostCenter "Installing NodeJS..." -ForegroundColor Cyan
-#scoop install nodejs --global
+#####  Install NodeJS  #####
+Write-Host; Write-HostCenter "Installing NodeJS..." -ForegroundColor Cyan
+scoop install nodejs --global
 
 
-###  Install Python  ###
-#Write-HostCenter "Installing Python..." -ForegroundColor Cyan
-#scoop install python --global
+#####  Install Python  #####
+Write-Host; Write-HostCenter "Installing Python..." -ForegroundColor Cyan
+scoop install python --global
 
 
-###  Install MinGW  ###
-#Write-HostCenter "Installing WinLibs standalone build of GCC and MinGW-w64 for Windows: " -NoNewline -ForegroundColor Cyan
-#Write-Host "https://winlibs.com" -ForegroundColor Yellow
-#scoop info mingw-winlibs --global
+#####  Install PHP  #####
+Write-Host; Write-HostCenter "Installing PHP..." -ForegroundColor Cyan
+scoop install php --global
 
 
-###  Install WinFetch  ###
-#Write-HostCenter "Installing WinFetch..." -ForegroundColor Cyan
-#scoop install winfetch --global
+#####  Install MinGW  #####
+Write-Host; Write-HostCenter "Installing WinLibs standalone build of GCC and MinGW-w64 for Windows" -ForegroundColor Cyan
+scoop install mingw-winlibs --global
 
 
-###  Install Pragtical Editor  ###
-# if ([Environment]::Is64BitOperatingSystem) {
-# Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
-# scoop install pragtical --global
-# if (($env:Path -split ';') -notcontains "$env:PROGRAMDATA\scoop\apps\pragtical\current") {
-#     $env:PATH += ";$env:PROGRAMDATA\scoop\apps\pragtical\current"
-#     [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
-# }
-# scoop shim add p 'pragtical' --global
-# scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
-# scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
-
-# scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
-# ppm purge --force
-# $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
-# ppm install plugin_manager --assume-yes --progress
-# ppm install language* --assume-yes --progress
-# ppm color install * --assume-yes --progress
-# ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress
-# #ppm install lsp lsp_snippets snippets --assume-yes --progress
-
-# ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
-#     datetimestamps editorconfig endwise eofnewline ephemeral_tabs eval evergreen exec extend_selection_line exterm force_syntax formatter `
-#     gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
-#     keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
-#     profiler rainbowparen recentfiles regexreplacepreview restoretabs `
-#     scalestatus selectionhighlight smartopenselected smoothcaret sort sortcss spellcheck sticky_scroll su_save svg_screenshot `
-#     tab_switcher tabnumbers terminal texcompile titleize todotreeview togglesnakecamel treeview-extender typingspeed wordcount `
-#     --assume-yes --progress
-
-# ppm upgrade --assume-yes
-# }
+#####  Install WinFetch  #####
+Write-Host; Write-HostCenter "Installing WinFetch..." -ForegroundColor Cyan
+scoop install winfetch --global
 
 
-###  Install oh-my-posh  ###
-# Write-HostCenter "Installing oh-my-posh..." -ForegroundColor Cyan
-# winget install $poshName --disable-interactivity --accept-source-agreements --accept-package-agreements
+#####  Install Zoxide  #####
+Write-Host; Write-HostCenter "Installing Zoxide..." -ForegroundColor Cyan
+# winget install ajeetdsouza.zoxide --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+scoop install zoxide --global
+
+
+#####  Install micro editor #####
+Write-Host; Write-HostCenter "Installing micro..." -ForegroundColor Cyan
+scoop install micro --global
+micro -plugin install fish lsp go autofmt snippets wakatime detectindent zigfmt runit editorconfig manipulator joinLines filemanager `
+                      palettero quoter pony crystal bounce cheat aspell bookmark jlabbrev gotham-colors fzf misspell wc quickfix jump
+
+#####  Install Pragtical Editor  #####
+if ([Environment]::Is64BitOperatingSystem) {
+    Write-Host; Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
+    scoop install pragtical --global
+    if (($env:PATH -split ';') -notcontains "$env:PROGRAMDATA\scoop\apps\pragtical\current") {
+        $env:PATH += ";$env:PROGRAMDATA\scoop\apps\pragtical\current"
+        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+    }
+    scoop shim add p 'pragtical' --global
+    scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+    scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+
+    scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
+    $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
+    ppm purge --force
+    # ppm install plugin_manager --assume-yes --progress
+    ppm install language* --assume-yes --progress --datadir=$datadir
+    ppm color install * --assume-yes --progress --datadir=$datadir
+    ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress --datadir=$datadir
+    ppm install lsp lsp_snippets snippets --assume-yes --progress --datadir=$datadir
+
+    ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
+        datetimestamps editorconfig endwise eofnewline ephemeral_tabs eval evergreen exec extend_selection_line exterm force_syntax formatter `
+        gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
+        keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
+        profiler rainbowparen recentfiles regexreplacepreview restoretabs `
+        scalestatus selectionhighlight smartopenselected smoothcaret sort sortcss spellcheck sticky_scroll su_save svg_screenshot `
+        tab_switcher tabnumbers terminal texcompile titleize togglesnakecamel treeview-extender typingspeed wordcount `
+        --assume-yes --progress --datadir=$datadir
+
+    ppm upgrade --assume-yes --datadir=$datadir
+}
+
+
+#####  Install oh-my-posh  #####
+Write-Host; Write-HostCenter "Installing oh-my-posh..." -ForegroundColor Cyan
+$env:POSH_THEMES_PATH = "$env:PROGRAMDATA\Scoop\apps\oh-my-posh\current\themes"
+[Environment]::SetEnvironmentVariable('POSH_THEMES_PATH', $env:POSH_THEMES_PATH, [EnvironmentVariableTarget]::Machine)
+[Environment]::SetEnvironmentVariable('POSH_THEMES_PATH', $env:POSH_THEMES_PATH, [EnvironmentVariableTarget]::User)
+scoop install 'oh-my-posh' --global
 
 #oh-my-posh configuration
-$poshLine = "oh-my-posh init pwsh --config ""$env:POSH_THEMES_PATH\$($theme)"" | Invoke-Expression"
+$poshLine = "oh-my-posh init pwsh --config `"$env:POSH_THEMES_PATH\$($theme).omp.json`" | Invoke-Expression"
+Invoke-Expression "$poshLine" 2>$null
+
 if ($powershellStatus) {
-    Edit-Profile -ProfilePath $powershellProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh"
+    Update-ContentFile -Path $powershellProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh*"
 }
 if ($pwshStatus) {
-    Edit-Profile -ProfilePath $pwshProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh"
+    Update-ContentFile -Path $pwshProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh*"
 }
 
 
-###  Powershell Enhancement  ###
+#####  Powershell Enhancement  #####
 #disable restricted PowerShell language mode
 # Remove-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' __PSLockdownPolicy 2>$null
-
-# $fixRussianKeyboardCopyPaste = @"
-# Set-PSReadLineKeyHandler -Chord Ctrl+ì -ScriptBlock {
-#     [Microsoft.PowerShell.PSConsoleReadLine]::Paste()
-# }
-
-# Set-PSReadLineKeyHandler -Chord Ctrl+ñ -ScriptBlock {
-#     [Microsoft.PowerShell.PSConsoleReadLine]::Copy()
-# }
-
-# Set-PSReadLineKeyHandler -Chord Ctrl+÷ -ScriptBlock {
-#     [Microsoft.PowerShell.PSConsoleReadLine]::Cut()
-# }
-# "@
-
-$fixWhereCommand = '(Remove-Item alias:\where -Force) 2>$null'
-
-if ($powershellStatus) {
-    #fix CTRL+C, CTRL+V, CTRL+X for Russian keyboard layout
-    # Edit-Profile -ProfilePath $powershellProfileAllUsersAllHosts  -Text $fixRussianKeyboardCopyPaste -SearchPattern $fixRussianKeyboardCopyPaste
-
-    #remove a bad allias that blocks the 'where' command
-    Edit-Profile -ProfilePath $powershellProfile -Text $fixWhereCommand -SearchPattern $fixWhereCommand
-}
-if ($pwshStatus) {
-    #fix CTRL+C, CTRL+V, CTRL+X for Russian keyboard layout
-    # Edit-Profile -ProfilePath $pwshProfileAllUsersAllHosts  -Text $fixRussianKeyboardCopyPaste -SearchPattern $fixRussianKeyboardCopyPaste
-
-    #remove a bad allias that blocks the 'where' command
-    Edit-Profile -ProfilePath $pwshProfile -Text $fixWhereCommand -SearchPattern $fixWhereCommand
-}
 
 Write-Host "`nInstalling scripts: " -ForegroundColor Cyan -NoNewline; Write-Host "$scripts" -ForegroundColor Blue
 foreach ($scriptName in $scripts) {
 
     if ($pwshStatus) {
-        Write-Host "`nInstall script in PowerShell Core: $scriptName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh -NoProfile -Command "Install-PSResource -Name $scriptName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall"
+        if ($textToProfile[$scriptName] -eq 'remove') {
+            Write-Host "`nRemove script in PowerShell Core: $scriptName" -ForegroundColor White -BackgroundColor DarkRed
+            pwsh -NoProfile -Command "Remove-Module -Name $scriptName -Force -ErrorAction SilentlyContinue"
+        }
+        else {
+            Write-Host "`nInstall script in PowerShell Core: $scriptName" -ForegroundColor White -BackgroundColor Magenta
+            pwsh -NoProfile -Command "Install-PSResource -Name $scriptName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall -ErrorAction SilentlyContinue"
+        }
     }
 
+    if ($resourceOnlyCore -contains $scriptName) { continue }
+
     if ($powershellStatus) {
-        Write-Host "`nInstall script in PowerShell: $scriptName" -ForegroundColor White -BackgroundColor Magenta
-        powershell -NoProfile -Command "Install-PSResource -Name $scriptName -Scope AllUsers -AcceptLicense -Reinstall"
+        if ($textToProfile[$scriptName] -eq 'remove') {
+            Write-Host "`nRemove script in PowerShell: $scriptName" -ForegroundColor White -BackgroundColor DarkRed
+            powershell -NoProfile -Command "Remove-Module -Name $scriptName -Force -ErrorAction SilentlyContinue"
+        }
+        else {
+            Write-Host "`nInstall script in PowerShell: $scriptName" -ForegroundColor White -BackgroundColor Magenta
+            powershell -NoProfile -Command "Install-PSResource -Name $scriptName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall -ErrorAction SilentlyContinue"
+        }
     }
 }
 
@@ -428,61 +455,109 @@ Write-Host "`nInstalling modules: " -ForegroundColor Cyan -NoNewline; Write-Host
 foreach ($moduleName in $modulesNoImport) {
 
     if ($pwshStatus) {
-        Write-Host "`nInstall module in PowerShell Core:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        pwsh -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall"
+        if ($textToProfile[$moduleName] -eq 'remove') {
+            Write-Host "`nRemove module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor DarkRed
+            pwsh -NoProfile -Command "Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue"
+        }
+        else {
+            Write-Host "`nInstall module in PowerShell Core:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
+            pwsh -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall -ErrorAction SilentlyContinue"
+        }
     }
 
-    if ($modulesOnlyCore -contains $moduleName) {continue}
+    if ($resourceOnlyCore -contains $moduleName) { continue }
 
     if ($powershellStatus) {
-        Write-Host "`nInstall module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        powershell -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -AcceptLicense -Reinstall"
+        if ($textToProfile[$moduleName] -eq 'remove') {
+            Write-Host "`nRemove module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor DarkRed
+            powershell -NoProfile -Command "Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue"
+        }
+        else {
+            Write-Host "`nInstall module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor Magenta
+            powershell -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -AcceptLicense -Reinstall -ErrorAction SilentlyContinue"
+        }
     }
 }
 
 Write-Host "`nInstalling modules with import to Profile: " -ForegroundColor Cyan -NoNewline; Write-Host "$modules" -ForegroundColor Blue
 foreach ($moduleName in $modules) {
 
-    if ($pwshStatus) {
-        Write-Host "`nInstall module in PowerShell Core: $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        # Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue
-        pwsh -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall"
-        if ($?) {
-            switch ($moduleName) {
-                "modulname" {
-                    $moduleText = $textToProfile[$moduleName]
-                }
-                Default {
-                    $moduleText = "Import-Module -Name $moduleName"
-                }
-            }
-            Edit-Profile -ProfilePath $pwshProfile -Text $moduleText -SearchPattern "Import-Module -Name $moduleName"
-        }
+    $moduleText = "Import-Module -Name $moduleName"
+    if ($moduleName -in $textToProfile.Keys) {
+        $moduleText = $textToProfile[$moduleName]
+    }
+    if ($moduleName -in $searchPatternInProfile.Keys) {
+        $SearchPattern = $searchPatternInProfile[$moduleName]
     }
 
-    if ($modulesOnlyCore -contains $moduleName) {continue}
+    if ($pwshStatus) {
+        if ($moduleText -eq 'remove') {
+            Write-Host "`nRemove module in PowerShell Core:  $moduleName" -ForegroundColor White -BackgroundColor DarkRed
+            pwsh -NoProfile -Command "Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue"
+            $moduleText = $null
+        }
+        else {
+            Write-Host "`nInstall module in PowerShell Core: $moduleName" -ForegroundColor White -BackgroundColor Magenta
+            pwsh -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -Prerelease -AcceptLicense -Reinstall -ErrorAction SilentlyContinue"
+        }
+        Update-ContentFile -Path $pwshProfile -Text $moduleText -SearchPattern $SearchPattern
+    }
+
+    if ($resourceOnlyCore -contains $moduleName) { continue }
 
     if ($powershellStatus) {
-        Write-Host "`nInstall module in PowerShell: $moduleName" -ForegroundColor White -BackgroundColor Magenta
-        # Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue
-        powershell -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -AcceptLicense -Reinstall"
-        if ($?) {
-            switch ($moduleName) {
-                "ModulName" {
-                    $moduleText = $textToProfile[$moduleName]
-                }
-                Default {
-                    $moduleText = "Import-Module -Name $moduleName"
-                }
-            }
-            Edit-Profile -ProfilePath $powershellProfile -Text $moduleText -SearchPattern "Import-Module -Name $moduleName"
+        if ($moduleText -eq 'remove') {
+            Write-Host "`nRemove module in PowerShell:  $moduleName" -ForegroundColor White -BackgroundColor DarkRed
+            powershell -NoProfile -Command "Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue"
         }
+        else {
+            Write-Host "`nInstall module in PowerShell: $moduleName" -ForegroundColor White -BackgroundColor Magenta
+            powershell -NoProfile -Command "Install-PSResource -Name $moduleName -Scope AllUsers -AcceptLicense -Reinstall -ErrorAction SilentlyContinue"
+        }
+        Update-ContentFile -Path $powershellProfile -Text $moduleText -SearchPattern $SearchPattern
     }
 }
 
+# $fixRussianKeyboardCopyPaste = @"
+# Set-PSReadLineKeyHandler -Chord Ctrl+Ð¼ -ScriptBlock {
+#     [Microsoft.PowerShell.PSConsoleReadLine]::Paste()
+# }
 
-###  Install Font  ###
-Write-HostCenter "`nInstalling Font..." -ForegroundColor Cyan
+# Set-PSReadLineKeyHandler -Chord Ctrl+Ñ -ScriptBlock {
+#     [Microsoft.PowerShell.PSConsoleReadLine]::Copy()
+# }
+
+# Set-PSReadLineKeyHandler -Chord Ctrl+Ñ‡ -ScriptBlock {
+#     [Microsoft.PowerShell.PSConsoleReadLine]::Cut()
+# }
+# "@
+
+$fixWhereLine = '(Remove-Item alias:\where -Force) 2>$null'
+
+$zoxideLine = 'Invoke-Expression (& { (zoxide init powershell | Out-String) })'
+
+if ($powershellStatus) {
+    #fix CTRL+C, CTRL+V, CTRL+X for Russian keyboard layout
+    # Update-ContentFile -Path $powershellProfile -Text $fixRussianKeyboardCopyPaste -SearchPattern $fixRussianKeyboardCopyPaste
+
+    #remove a bad allias that blocks the 'where' command
+    Update-ContentFile -Path $powershellProfile -Text $fixWhereLine -SearchPattern $fixWhereLine
+
+    Update-ContentFile -Path $powershellProfile -Text $zoxideLine -SearchPattern $zoxideLine
+}
+if ($pwshStatus) {
+    #fix CTRL+C, CTRL+V, CTRL+X for Russian keyboard layout
+    # Update-ContentFile -Path $pwshProfile -Text $fixRussianKeyboardCopyPaste -SearchPattern $fixRussianKeyboardCopyPaste
+
+    #remove a bad allias that blocks the 'where' command
+    Update-ContentFile -Path $pwshProfile -Text $fixWhereLine -SearchPattern $fixWhereLine
+
+    Update-ContentFile -Path $pwshProfile -Text $zoxideLine -SearchPattern $zoxideLine
+}
+
+
+#####  Install Font  #####
+Write-Host; Write-HostCenter "Installing Fonts..." -ForegroundColor Cyan
 foreach ($font in $fonts) {
     switch ($font) {
         "IBMPlexMono" {
@@ -496,22 +571,22 @@ foreach ($font in $fonts) {
         Write-Host "Font '$font' is already installed."
     }
     else {
-        & "$env:USERPROFILE\AppData\Local\Programs\oh-my-posh\bin\oh-my-posh.exe" font install $font
+        & "$env:SCOOP\shims\oh-my-posh.exe" font install $font
     }
 }
 
 #set default font Windows Terminal
-Set-ItemProperty -Path "HKCU:\Console\" -Name "FaceName" -Type String -Value "JetBrainsMono NFM Medium" 2>$null
+Set-ItemProperty -Path "HKCU:\Console\" -Name "FaceName" -Type String -Value "JetBrainsMono NFM" 2>$null
 Set-ItemProperty -Path "HKCU:\Console\" -Name "FontSize" -Type DWord -Value "16" 2>$null
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "0" -Value "JetBrainsMono NFM Medium" 2>$null
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "00" -Value "JetBrainsMono NFM Medium" 2>$null
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "0" -Value "JetBrainsMono NFM" 2>$null
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "00" -Value "JetBrainsMono NFM" 2>$null
 
 
-###  FINISH  ###
-Write-Host; Write-Host "Reloading Profile..." -ForegroundColor Cyan
-. $PROFILE
+#####  FINISH  #####
+# Write-Host; Write-HostCenter "Reloading Profile..." -ForegroundColor Cyan
+# . $PROFILE.AllUsersAllHosts
 
-Write-HostCenter "Installation Complete." -ForegroundColor Green; Write-Host
+Write-Host; Write-HostCenter "Installation Complete." -ForegroundColor Green; Write-Host
 
 if ($powershellStatus) {
     Write-Host "Installed Modules and Scripts PowerShell: " -ForegroundColor White -BackgroundColor Magenta
@@ -526,30 +601,31 @@ if ($pwshStatus) {
 winfetch -ShowDisks * -cpustyle 'bar' -memorystyle 'bartext'  -diskstyle 'bartext' -batterystyle 'bartext'
 
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "!!!   Íå çàáóäüòå ïîìåíÿòü øðèôò ñâîåãî òåðìèíàëà íà:   !!!" -ForegroundColor Yellow
-Write-HostCenter "!!!     JetBrainsMono NFM Medium     font-size: 16      !!!" -ForegroundColor Yellow
-Write-HostCenter "!!!     èëè MesloLGS Nerd Font Mono  font-size: 16      !!!" -ForegroundColor Yellow
-Write-HostCenter "!!!     èëè BlexMono Nerd Font Mono  font-size: 18      !!!" -ForegroundColor Yellow -NoNewline
+Write-HostCenter "!!!   ÐÐµ Ð·Ð°Ð±ÑƒÐ´ÑŒÑ‚Ðµ Ð¿Ð¾Ð¼ÐµÐ½ÑÑ‚ÑŒ ÑˆÑ€Ð¸Ñ„Ñ‚ ÑÐ²Ð¾ÐµÐ³Ð¾ Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð°Ð»Ð° Ð½Ð°:   !!!" -ForegroundColor Yellow
+Write-HostCenter "!!!       JetBrainsMono NFM          font-size: 16      !!!" -ForegroundColor Yellow
+Write-HostCenter "!!!       MesloLGS Nerd Font Mono    font-size: 16      !!!" -ForegroundColor Yellow -NoNewline
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "> powershellconf - ðåäàêòèðîâàòü ïðîôèëü AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
-Write-HostCenter "> pwshconf - ðåäàêòèðîâàòü ïðîôèëü AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
-Write-HostCenter "> p - çàïóñòèòü èç òåðìèíàëà ðåäàêòîð Pragtical Editor " -ForegroundColor DarkYellow
+Write-HostCenter "> powershellconf - Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ Ð¿Ñ€Ð¾Ñ„Ð¸Ð»ÑŒ AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
+Write-HostCenter "> pwshconf - Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ Ð¿Ñ€Ð¾Ñ„Ð¸Ð»ÑŒ AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
+Write-HostCenter "> p - Ð·Ð°Ð¿ÑƒÑÑ‚Ð¸Ñ‚ÑŒ Ð¸Ð· Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð°Ð»Ð° Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¾Ñ€ Pragtical Editor " -ForegroundColor DarkYellow
+Write-HostCenter "> psedit - Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð°Ð»ÑŒÐ½Ñ‹Ð¹ Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¾Ñ€ ps ÑÐºÑ€Ð¸Ð¿Ñ‚Ð¾Ð²" -ForegroundColor DarkYellow
+Write-HostCenter "> micro - Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð°Ð»ÑŒÐ½Ñ‹Ð¹ Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¾Ñ€" -ForegroundColor DarkYellow
+Write-HostCenter "[F2] Ð² Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð°Ð»Ðµ, Ð¾ÐºÑ‚Ñ€Ñ‹Ð²Ð°ÐµÑ‚ Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ñƒ Ð¸ÑÑ‚Ð¾Ñ€Ð¸Ð¸ ÐºÐ¾Ð¼Ð°Ð½Ð´" -ForegroundColor DarkYellow
 
-Write-Host; Write-HostCenter "Press any key to Update-Help" -ForegroundColor Gray
-$Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") *>$null
+# Write-Host; Write-HostCenter "Press any key to Update-Help" -ForegroundColor Gray
+# $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown") *>$null
+Write-Host; Write-HostCenter "Update help manuals for commands..." -ForegroundColor Cyan
+Update-Help 2>$null
 
-#update help manuals for command
-# Update-Help 2>$null
-
-Exit
-
-
-
-
+# Exit
 
 
 
-#########  Support Commands  #########
+
+
+
+
+###############  Support Commands  ###############
 # all profiles current shell
 #$PROFILE | Select-Object *Host* | Format-List
 
