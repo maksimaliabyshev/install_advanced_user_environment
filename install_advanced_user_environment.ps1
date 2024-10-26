@@ -316,7 +316,7 @@ else {
 scoop bucket add extras
 scoop update
 scoop cleanup *
-
+scoop install main/scoop-search --global
 
 #####  Install curl, wget   #####
 scoop install curl --global
@@ -363,7 +363,7 @@ scoop install zoxide --global
 #####  Install micro editor #####
 Write-Host; Write-HostCenter "Installing micro..." -ForegroundColor Cyan
 scoop install micro --global
-micro -plugin install fish lsp go autofmt snippets wakatime detectindent zigfmt runit editorconfig manipulator joinLines filemanager `
+micro -plugin install fish lsp go autofmt snippets detectindent zigfmt runit editorconfig manipulator joinLines filemanager `
                       palettero quoter pony crystal bounce cheat aspell bookmark jlabbrev gotham-colors fzf misspell wc quickfix jump
 
 #####  Install Pragtical Editor  #####
