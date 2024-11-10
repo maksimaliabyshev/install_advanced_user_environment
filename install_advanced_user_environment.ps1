@@ -1,9 +1,7 @@
-﻿<#
-.NOTES
-A script to automatically install or update a typical advanced users software environment.
-https://github.com/maksimaliabyshev
-Version 1.0 by Maksim Aliabyshev
-#>
+﻿# .NOTES
+# A script to automatically install or update a typical advanced users software environment.
+# https://github.com/maksimaliabyshev
+# Version 1.1 by Maksim Aliabyshev
 
 param(
     [string]$theme = "powerlevel10k_rainbow",
@@ -22,7 +20,7 @@ if (-not [string]::IsNullOrEmpty($PSBoundParameters)) {
 }
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
     if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
-        Start-Process powershell -Verb RunAs -ArgumentList ("-NonInteractive -NoProfile -NoExit -File `"$($MyInvocation.MyCommand.Definition)`" $params")
+        Start-Process powershell -Verb RunAs -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -NonInteractive -NoExit -File `"$($MyInvocation.MyCommand.Definition)`" $params")
         Exit $LASTEXITCODE
     }
 }
@@ -57,6 +55,8 @@ Write-Host "Fonts: " -NoNewline; Write-Host $fonts -ForegroundColor Magenta
 Write-Host "Scripts: " -NoNewline; Write-Host $scripts -ForegroundColor Magenta
 Write-Host "ModulesNoImport: " -NoNewline; Write-Host "$modulesNoImport" -ForegroundColor Magenta
 Write-Host "Modules: " -NoNewline; Write-Host "$modules" -ForegroundColor Magenta
+
+$env:Path = [Environment]::GetEnvironmentVariable("PATH", [EnvironmentVariableTarget]::Machine)
 
 function Write-HostCenter {
     param($Message)
@@ -149,13 +149,16 @@ Register-PSRepository -Default -InstallationPolicy Trusted -ErrorAction Ignore
 #####  Install winget  #####
 Write-Host; Write-HostCenter "Installing package manager WinGet..." -ForegroundColor Cyan
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force -ErrorAction SilentlyContinue
-Install-Script -Name winget-install -Scope AllUsers -Force
-winget-install -ForceClose -Force -Verbose
+powershell -Command "&([ScriptBlock]::Create((irm asheroto.com/winget))) -Force -ForceClose"
 
 
 #####  Install Powershell Core  #####
 Write-Host; Write-HostCenter "Installing PowerShell Core..." -ForegroundColor Cyan
 winget install --id=Microsoft.Powershell --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+if (($env:Path -split ';') -notcontains "$env:PROGRAMFILES\PowerShell\7") {
+	$env:PATH += ";$env:PROGRAMFILES\PowerShell\7"
+    [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+}
 
 #detect PowerShell
 if ((Get-Command -Name powershell -ErrorAction SilentlyContinue) -and !$ProfilePath) {
@@ -180,8 +183,8 @@ if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
 if ($powershellStatus) {
     Write-Host "PowerShell install " -ForegroundColor Cyan -NoNewline; Write-Host 'Microsoft.PowerShell.PSResourceGet' -ForegroundColor Blue
     powershell -NoProfile -Command 'Install-Module -Name PSReadLine -Scope AllUsers -AllowClobber -Force -ErrorAction SilentlyContinue'
-    powershell -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowClobber -Force'
-    powershell -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowClobber -Force -Verbose'
+    powershell -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowClobber -Force -ErrorAction SilentlyContinue'
+    powershell -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowClobber -Force'
     if (($env:Path -split ';') -notcontains "$env:PROGRAMFILES\WindowsPowerShell\Scripts") {
         $env:PATH += ";$env:PROGRAMFILES\WindowsPowerShell\Scripts"
         [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
@@ -190,15 +193,15 @@ if ($powershellStatus) {
 if ($pwshStatus) {
     Write-Host "PowerShell Core install " -ForegroundColor Cyan -NoNewline; Write-Host 'Microsoft.PowerShell.PSResourceGet' -ForegroundColor Blue
     pwsh -NoProfile -Command 'Install-Module -Name PSReadLine -Scope AllUsers -AllowClobber -Force -ErrorAction SilentlyContinue'
-    pwsh -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force'
-    pwsh -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force -Verbose'
+    pwsh -NoProfile -Command 'Install-Module -Name PowerShellGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force -ErrorAction SilentlyContinue'
+    pwsh -NoProfile -Command 'Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope AllUsers -AllowPrerelease -AllowClobber -Force'
     if (($env:Path -split ';') -notcontains "$env:PROGRAMFILES\PowerShell\Scripts") {
         $env:PATH += ";$env:PROGRAMFILES\PowerShell\Scripts"
         [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
     }
 }
 Set-PSResourceRepository -Name PSGallery -Trusted -ErrorAction SilentlyContinue
-# Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+
 
 if ([Environment]::Is64BitOperatingSystem) {
     $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_file_powershell_pwsh_ise.reg"
@@ -285,16 +288,11 @@ Write-Host; Write-HostCenter "Installing Microsoft .NET Framework 2/3..." -Foreg
 #winget install --id=Microsoft.DirectX --silent --disable-interactivity --accept-source-agreements --accept-package-agreements 2>$null
 
 
-#####  Install OpenJDK JRE 17  #####
+#####  Install Java Runtime Environment  #####
 Write-Host; Write-HostCenter "Installing Java Runtime Environment..." -ForegroundColor Cyan
 winget install --id=Oracle.JavaRuntimeEnvironment --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=ojdkbuild.openjdk.11.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=ojdkbuild.openjdk.17.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-
-
-#####  Install Git   #####
-Write-Host; Write-HostCenter "Installing Git..." -ForegroundColor Cyan
-winget install --id=Git.Git --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
 #####  Install WinFsp  #####
@@ -313,10 +311,15 @@ if (Test-Path -Path "$env:SCOOP\shims\scoop.ps1") {
 else {
     Invoke-Expression "& {$(Invoke-RestMethod get.scoop.sh)} -RunAsAdmin"
 }
+# scoop cleanup *
 scoop bucket add extras
-scoop update
-scoop cleanup *
 scoop install main/scoop-search --global
+
+
+#####  Install Git   #####
+Write-Host; Write-HostCenter "Installing Git..." -ForegroundColor Cyan
+scoop install git --global
+
 
 #####  Install curl, wget   #####
 scoop install curl --global
@@ -366,6 +369,8 @@ scoop install micro --global
 micro -plugin install fish lsp go autofmt snippets detectindent zigfmt runit editorconfig manipulator joinLines filemanager `
                       palettero quoter pony crystal bounce cheat aspell bookmark jlabbrev gotham-colors fzf misspell wc quickfix jump
 
+
+
 #####  Install Pragtical Editor  #####
 if ([Environment]::Is64BitOperatingSystem) {
     Write-Host; Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
@@ -375,8 +380,8 @@ if ([Environment]::Is64BitOperatingSystem) {
         [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
     }
     scoop shim add p 'pragtical' --global
-    scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
-    scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+    scoop shim add powershellconfig 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+    scoop shim add pwshconfig 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
 
     scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
     $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
@@ -578,7 +583,7 @@ foreach ($font in $fonts) {
 #set default font Windows Terminal
 Set-ItemProperty -Path "HKCU:\Console\" -Name "FaceName" -Type String -Value "JetBrainsMono NFM" 2>$null
 Set-ItemProperty -Path "HKCU:\Console\" -Name "FontSize" -Type DWord -Value "16" 2>$null
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "0" -Value "JetBrainsMono NFM" 2>$null
+# Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "0" -Value "JetBrainsMono NFM" 2>$null
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "00" -Value "JetBrainsMono NFM" 2>$null
 
 
@@ -605,8 +610,8 @@ Write-HostCenter "!!!   Не забудьте поменять шрифт сво
 Write-HostCenter "!!!       JetBrainsMono NFM          font-size: 16      !!!" -ForegroundColor Yellow
 Write-HostCenter "!!!       MesloLGS Nerd Font Mono    font-size: 16      !!!" -ForegroundColor Yellow -NoNewline
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "> powershellconf - редактировать профиль AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
-Write-HostCenter "> pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
+Write-HostCenter "> powershellconfig - редактировать профиль AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
+Write-HostCenter "> pwshconfig - редактировать профиль AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
 Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
 Write-HostCenter "> psedit - терминальный редактор ps скриптов" -ForegroundColor DarkYellow
 Write-HostCenter "> micro - терминальный редактор" -ForegroundColor DarkYellow
