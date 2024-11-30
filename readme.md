@@ -39,12 +39,12 @@ PowerShell scripts, modules - улучшают и расширяют функц�
 
 ## Запуск скрипта можно осуществить различными способами
 
-Проще всего запустить через ПКМ на файле скрипта.
+Проще всего запустить через ПКМ на файле скрипта.</br>
 
 ### Скрипт самостоятельно определит профили PowerShell, PowerShell Core из переменных окружения
 
-▶ `powershell -ExecutionPolicy Bypass -File install_advanced_user_environment.ps1`
-▶ `pwsh -ExecutionPolicy Bypass -File install_advanced_user_environment.ps1`
+▶ `powershell -ExecutionPolicy Bypass -File install_advanced_user_environment.ps1`</br>
+▶ `pwsh -ExecutionPolicy Bypass -File install_advanced_user_environment.ps1`</br>
 
 ### С параметрами
 
