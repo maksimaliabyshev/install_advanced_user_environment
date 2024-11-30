@@ -366,7 +366,7 @@ scoop install git --global
 #####  Install curl, wget   #####
 scoop install curl --global
 scoop install wget --global
-
+scoop install aria2 --global
 
 #####  Install Clink for cmd.exe  #####
 Write-Host; Write-HostCenter "Installing Clink autocomplit tool for cmd.exe" -ForegroundColor Cyan
@@ -422,13 +422,12 @@ if ([Environment]::Is64BitOperatingSystem) {
         [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
     }
     scoop shim add p 'pragtical' --global
-    scoop shim add powershellconfig 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
-    scoop shim add pwshconfig 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+    scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+    scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
 
     scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
     $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
     ppm purge --force
-    # ppm install plugin_manager --assume-yes --progress
     ppm install language* --assume-yes --progress --datadir=$datadir
     ppm color install * --assume-yes --progress --datadir=$datadir
     ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress --datadir=$datadir
@@ -649,8 +648,8 @@ Write-HostCenter "!!!   Не забудьте поменять шрифт сво
 Write-HostCenter "!!!       JetBrainsMono NFM          font-size: 16      !!!" -ForegroundColor Yellow
 Write-HostCenter "!!!       MesloLGS Nerd Font Mono    font-size: 16      !!!" -ForegroundColor Yellow -NoNewline
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "> powershellconfig - редактировать профиль AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
-Write-HostCenter "> pwshconfig - редактировать профиль AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
+Write-HostCenter "> powershellconf - редактировать профиль AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
+Write-HostCenter "> pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
 Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
 Write-HostCenter "> psedit - терминальный редактор ps скриптов" -ForegroundColor DarkYellow
 Write-HostCenter "> micro - терминальный редактор" -ForegroundColor DarkYellow
