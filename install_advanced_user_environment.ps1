@@ -144,19 +144,51 @@ if ($ProfilePath) {
 
 (Remove-Item alias:\where -Force) 2>$null
 Register-PSRepository -Default -InstallationPolicy Trusted -ErrorAction Ignore
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 
 #####  Install winget  #####
 Write-Host; Write-HostCenter "Installing package manager WinGet..." -ForegroundColor Cyan
-Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force -ErrorAction SilentlyContinue
-powershell -Command "&([ScriptBlock]::Create((irm asheroto.com/winget))) -Force -ForceClose"
+
+if (-not (Get-PackageProvider -Name NuGet) -or (Get-PackageProvider -Name NuGet).version -lt 2.8.5.201 ) {
+    try {
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Confirm:$False -Force
+    }
+    catch {
+        Write-Error -Message $_.Exception
+    }
+}
+
+try {
+    winget --version
+}
+catch {
+    # Install VC++ x64 executable
+    Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vc_redist.x64.exe -OutFile $env:TEMP\vc_redist.x64.exe
+    Start-Process $env:TEMP\vc_redist.x64.exe /S -NoNewWindow -Wait -PassThru
+
+    # Install Microsoft.UI.Xaml from NuGet
+    Invoke-WebRequest -Uri https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6 -OutFile $env:TEMP\microsoft.ui.xaml.2.8.6.zip
+    Expand-Archive -Path $env:TEMP\microsoft.ui.xaml.2.8.6.zip -DestinationPath $env:TEMP\microsoft.ui.xaml -Force
+    Add-AppxPackage $env:TEMP\microsoft.ui.xaml\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx
+
+    # Install the latest release of Microsoft.DesktopInstaller from GitHub
+    Invoke-WebRequest -Uri https://github.com/microsoft/winget-cli/releases/latest/download/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle -OutFile $env:TEMP\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle
+    Add-AppxPackage $env:TEMP\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle
+
+    $ResolveWingetPath = Resolve-Path -Path "$env:PROGRAMFILES\WindowsApps\Microsoft.DesktopAppInstaller_*x64__8wekyb3d8bbwe"
+    if ($ResolveWingetPath -and ($env:Path -split ';') -notcontains "$($ResolveWingetPath[-1].Path)") {
+        $env:PATH += ";$($ResolveWingetPath[-1].Path)"
+        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+    }
+}
 
 
 #####  Install Powershell Core  #####
 Write-Host; Write-HostCenter "Installing PowerShell Core..." -ForegroundColor Cyan
 winget install --id=Microsoft.Powershell --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 if (($env:Path -split ';') -notcontains "$env:PROGRAMFILES\PowerShell\7") {
-	$env:PATH += ";$env:PROGRAMFILES\PowerShell\7"
+    $env:PATH += ";$env:PROGRAMFILES\PowerShell\7"
     [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
 }
 
@@ -169,6 +201,7 @@ if ((Get-Command -Name powershell -ErrorAction SilentlyContinue) -and !$ProfileP
     Write-Host "PowerShell profile AllUsersAllHosts: " -NoNewline; Write-Host $powershellProfile -ForegroundColor Yellow
     (powershell -NoProfile -Command '$PSVersionTable')
 }
+
 #detect PowerShell Core
 if ((Get-Command -Name pwsh -ErrorAction SilentlyContinue) -and !$ProfilePath) {
     $pwshStatus = $true
@@ -202,7 +235,7 @@ if ($pwshStatus) {
 }
 Set-PSResourceRepository -Name PSGallery -Trusted -ErrorAction SilentlyContinue
 
-
+#add context menu for files and folders
 if ([Environment]::Is64BitOperatingSystem) {
     $link = "https://gist.githubusercontent.com/maksimaliabyshev/77568947ef80baf32043b3247841035c/raw/context_file_powershell_pwsh_ise.reg"
     Invoke-WebRequest -Uri "$link" -OutFile "$env:TEMP/context_file_powershell_pwsh_ise.reg"
@@ -245,8 +278,8 @@ winget install --id=Microsoft.VCRedist.2015+.x64 --silent --disable-interactivit
 #Write-Host; Write-HostCenter "Installing Microsoft VisualStudio 2022 BuildTools..." -ForegroundColor Cyan
 #winget install --id=Microsoft.VisualStudio.2022.BuildTools --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # Individual Components: Windows SDK, C++ x64/x86 build tools
-#Start-Process "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" -Wait -PassThru -ArgumentList `
-#'modify --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" --passive --norestart --nocache --downloadThenInstall --includeRecommended --includeOptional --force',
+#Start-Process "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe" -Wait -PassThru -ArgumentList `
+#'modify --installPath "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools" --passive --norestart --nocache --downloadThenInstall --includeRecommended --includeOptional --force',
 #'--add Microsoft.VisualStudio.Component.NuGet.BuildTools',
 #'--add Microsoft.VisualStudio.Workload.VCTools',
 #'--add Microsoft.VisualStudio.Workload.MSBuildTools'
@@ -285,14 +318,23 @@ Write-Host; Write-HostCenter "Installing Microsoft .NET Framework 2/3..." -Foreg
 
 #####  Install DirectX Web Installer  #####
 #Write-Host; Write-HostCenter "Installing Microsoft DirectX End-User Runtime Web Installer..." -ForegroundColor Cyan
-#winget install --id=Microsoft.DirectX --silent --disable-interactivity --accept-source-agreements --accept-package-agreements 2>$null
+#winget install --id=Microsoft.DirectX --silent --disable-interactivity --accept-source-agreements --accept-package-agreements >$null
 
 
 #####  Install Java Runtime Environment  #####
-Write-Host; Write-HostCenter "Installing Java Runtime Environment..." -ForegroundColor Cyan
-winget install --id=Oracle.JavaRuntimeEnvironment --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-# winget install --id=ojdkbuild.openjdk.11.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-# winget install --id=ojdkbuild.openjdk.17.jre --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# Write-Host; Write-HostCenter "Installing Java Runtime Environment..." -ForegroundColor Cyan
+# winget install --id=Oracle.JavaRuntimeEnvironment --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=SAP.SapMachine.23.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=Amazon.Corretto.8.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=EclipseAdoptium.Temurin.23.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+
+
+#####  Install Java Software Development Kit  #####
+Write-Host; Write-HostCenter "Installing Java Software Development Kit..." -ForegroundColor Cyan
+# winget install --id=Oracle.JDK.23 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=SAP.SapMachine.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=Amazon.Corretto.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=EclipseAdoptium.Temurin.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
 #####  Install WinFsp  #####
@@ -314,7 +356,7 @@ else {
 # scoop cleanup *
 scoop bucket add extras
 scoop install main/scoop-search --global
-
+scoop install innounp --global
 
 #####  Install Git   #####
 Write-Host; Write-HostCenter "Installing Git..." -ForegroundColor Cyan
@@ -367,7 +409,7 @@ scoop install zoxide --global
 Write-Host; Write-HostCenter "Installing micro..." -ForegroundColor Cyan
 scoop install micro --global
 micro -plugin install fish lsp go autofmt snippets detectindent zigfmt runit editorconfig manipulator joinLines filemanager `
-                      palettero quoter pony crystal bounce cheat aspell bookmark jlabbrev gotham-colors fzf misspell wc quickfix jump
+    palettero quoter pony crystal bounce cheat aspell bookmark jlabbrev gotham-colors fzf misspell wc quickfix jump
 
 
 
@@ -413,14 +455,13 @@ $env:POSH_THEMES_PATH = "$env:PROGRAMDATA\Scoop\apps\oh-my-posh\current\themes"
 scoop install 'oh-my-posh' --global
 
 #oh-my-posh configuration
-$poshLine = "oh-my-posh init pwsh --config `"$env:POSH_THEMES_PATH\$($theme).omp.json`" | Invoke-Expression"
-Invoke-Expression "$poshLine" 2>$null
-
 if ($powershellStatus) {
-    Update-ContentFile -Path $powershellProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh*"
+    $poshLine = "oh-my-posh init powershell --config `"$env:POSH_THEMES_PATH\$($theme).omp.json`" | Invoke-Expression"
+    Update-ContentFile -Path $powershellProfile -Text $poshLine -SearchPattern "oh-my-posh init *"
 }
 if ($pwshStatus) {
-    Update-ContentFile -Path $pwshProfile -Text $poshLine -SearchPattern "oh-my-posh init pwsh*"
+    $poshLine = "oh-my-posh init pwsh --config `"$env:POSH_THEMES_PATH\$($theme).omp.json`" | Invoke-Expression"
+    Update-ContentFile -Path $pwshProfile -Text $poshLine -SearchPattern "oh-my-posh init *"
 }
 
 
@@ -538,7 +579,6 @@ foreach ($moduleName in $modules) {
 # "@
 
 $fixWhereLine = '(Remove-Item alias:\where -Force) 2>$null'
-
 $zoxideLine = 'Invoke-Expression (& { (zoxide init powershell | Out-String) })'
 
 if ($powershellStatus) {
@@ -583,7 +623,6 @@ foreach ($font in $fonts) {
 #set default font Windows Terminal
 Set-ItemProperty -Path "HKCU:\Console\" -Name "FaceName" -Type String -Value "JetBrainsMono NFM" 2>$null
 Set-ItemProperty -Path "HKCU:\Console\" -Name "FontSize" -Type DWord -Value "16" 2>$null
-# Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "0" -Value "JetBrainsMono NFM" 2>$null
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "00" -Value "JetBrainsMono NFM" 2>$null
 
 
