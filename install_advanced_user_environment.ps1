@@ -323,18 +323,17 @@ Write-Host; Write-HostCenter "Installing Microsoft .NET Framework 2/3..." -Foreg
 
 #####  Install Java Runtime Environment  #####
 # Write-Host; Write-HostCenter "Installing Java Runtime Environment..." -ForegroundColor Cyan
-# winget install --id=Oracle.JavaRuntimeEnvironment --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-# winget install --id=SAP.SapMachine.23.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=Amazon.Corretto.8.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=EclipseAdoptium.Temurin.8.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=EclipseAdoptium.Temurin.23.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
 #####  Install Java Software Development Kit  #####
 Write-Host; Write-HostCenter "Installing Java Software Development Kit..." -ForegroundColor Cyan
-# winget install --id=Oracle.JDK.23 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-# winget install --id=SAP.SapMachine.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-winget install --id=Amazon.Corretto.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-# winget install --id=EclipseAdoptium.Temurin.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=Amazon.Corretto.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=Amazon.Corretto.8.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=EclipseAdoptium.Temurin.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=EclipseAdoptium.Temurin.8.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
 #####  Install WinFsp  #####
