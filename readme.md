@@ -16,12 +16,12 @@ WinGet, Scoop - пакетные менеджеры</br>
 PowerShell Core - <https://github.com/PowerShell/PowerShell></br>
 Microsoft Edge WebView2 Runtime</br>
 Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable</br>
-\# Microsoft Visual Studio C++ x64/x86 Build Tools - <https://visualstudio.microsoft.com/ru/downloads/#build-tools-for-visual-studio-2022></br>
+<code style="color:gray">\#\#\# Microsoft Visual Studio C++ x64/x86 Build Tools - <https://visualstudio.microsoft.com/ru/downloads/#build-tools-for-visual-studio-2022></code></br>
 Microsoft .NET Desktop 3.1/5/6/7/8/Preview</br>
 Microsoft .NET Framework 2/3/4.5/4@latest</br>
-\# Microsoft ASP.NET Core 2/3/5/6/7/8/Preview</br>
-\# DirectX Web Installer</br>
-\# Java Runtime Environment</br>
+<code style="color:gray">\#\#\# Microsoft ASP.NET Core 2/3/5/6/7/8/Preview</code></br>
+<code style="color:gray">\#\#\# DirectX Web Installer</code></br>
+<code style="color:gray">\#\#\# Java Runtime Environment</code></br></code>
 Java Software Development Kit</br>
 Git - <https://gitforwindows.org></br>
 Clink - <https://chrisant996.github.io/clink></br>
@@ -33,7 +33,7 @@ WinFsp - <https://winfsp.dev></br>
 WinFetch - <https://github.com/lptstr/winfetch></br>
 Zoxide - <https://github.com/ajeetdsouza/zoxide></br>
 micro - <https://micro-editor.github.io></br>
-Pragtical - <https://pragtical.dev> - для редактирования конфигов, language source файлов</br>
+<code style="color:gray">\#\#\# Pragtical - <https://pragtical.dev> - для редактирования конфигов, language source файлов</code></br>
 oh-my-posh - <https://ohmyposh.dev> - быстрый движок тем для любой оболочки PowerShell</br>
 wget, curl, aria2 - web network утилиты</br>
 PowerShell scripts, modules - улучшают и расширяют функциональность PowerShell</br>
@@ -99,18 +99,12 @@ PowerShell scripts, modules - улучшают и расширяют функц�
 
 ### Pragtical Editor
 
-Через scoop создан shim link на Pragtical, запуск из терминала:</br>
-▶ p - откроет редактор с файлами из прошлой сесии</br>
-▶ p FileName - откроет существующий файл или создаст новую вкладку</br>
-▶ powershellconf - редактировать профиль AllUsersAllHosts PowerShell</br>
-▶ pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core</br>
-
 ▼ Горячии клавиши ▼</br>
 <https://pragtical.dev/docs/user-guide/keymap>
 
 [ctrl] + [shift] + [P] - поиск команды</br>
 [alt] + [P] - переключаться между открытыми вкладками</br>
-[ctrl] + [shift] + [T] - открыть последнюю закрытыю вкладку</br>
+[ctrl] + [shift] + [T] - открыть последнюю закрытую вкладку</br>
 [ctrl] + [.] - открыть console</br>
 [ctrl] + [shift] + [.] - запустить команду в console</br>
 [alt] + [T] - открыть terminal</br>
@@ -121,18 +115,24 @@ PowerShell scripts, modules - улучшают и расширяют функц�
 [ctrl] + [shift] + [/] - комменитровать блок</br>
 </br>
 
+## Шорткаты на запуск из терминала
+
+Через scoop создан shim link:</br>
+▶ powershellconf - редактировать профиль PowerShell AllUsersAllHosts</br>
+▶ pwshconf - редактировать профиль PowerShell Core AllUsersAllHosts</br>
+
 ## Кнопка для панели Total Commander
 
-Скопировать все файлы репозитория в папку `%COMMANDER_PATH%\AddOn\install_advanced_user_environment\`</br>
+Скопировать все файлы репозитория в папку `%COMMANDER_PATH%\Addons\install_advanced_user_environment\`</br>
 Скопировать данный код и через ПКМ на панели кнопок выбрать опцию "Вставить"</br>
 
 ```autokey
 TOTALCMD#BAR#DATA
-%COMMANDER_PATH%\AddOn\install_advanced_user_environment\altrun.exe
+%COMMANDER_PATH%\Addons\install_advanced_user_environment\altrun.exe
 --run="%%WINDIR%%\sysnative\WindowsPowerShell\v1.0\powershell.exe" --par="-ExecutionPolicy Bypass -File install_advanced_user_environment.ps1"
-"%COMMANDER_PATH%\AddOn\install_advanced_user_environment\install_advanced_user_environment.ico"
+"%COMMANDER_PATH%\Addons\install_advanced_user_environment\install_advanced_user_environment.ico"
 WinGet, Scoop - пакетные менеджеры|PowerShell Core|Microsoft Edge WebView2 Runtime|Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+|Microsoft .NET Desktop 3.1/5/6/7/8/Preview|Microsoft .NET Framework 2/3/4.5/4@latest
-%COMMANDER_PATH%\AddOn\install_advanced_user_environment
+%COMMANDER_PATH%\Addons\install_advanced_user_environment
 0
 -1
 ```

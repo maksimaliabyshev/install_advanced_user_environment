@@ -30,8 +30,8 @@ Set-Location (Split-Path -Parent $MyInvocation.MyCommand.Definition)
 
 #####  Init  #####
 $fonts = @("JetBrainsMono", "Meslo") + ($fonts -split "[\s\,]+")
-$scripts = @("Invoke-Obliteration") + ($scripts -split "[\s\,]+")
-$modulesNoImport = @("PackageManagement", "psedit", "PSScriptAnalyzer", "Posh-SSH", "PSScriptTools", "FindOpenFile", "CodeConversion") + ($modulesNoImport -split "[\s\,]+")
+$scripts = @("Get-AutopilotDiagnostics") + ($scripts -split "[\s\,]+")
+$modulesNoImport = @("PackageManagement", "psedit", "PSScriptAnalyzer", "Posh-SSH", "PSWindowsUpdate") + ($modulesNoImport -split "[\s\,]+")
 $modules = @("Posh", "posh-git", "Terminal-Icons", "scoop-completion", "plinqo", "CompletionPredictor") + ($modules -split "[\s\,]+")
 
 $resourceOnlyCore = @("CompletionPredictor") + ($resourceOnlyCore -split "[\s\,]+")
@@ -323,17 +323,16 @@ Write-Host; Write-HostCenter "Installing Microsoft .NET Framework 2/3..." -Foreg
 
 #####  Install Java Runtime Environment  #####
 # Write-Host; Write-HostCenter "Installing Java Runtime Environment..." -ForegroundColor Cyan
-# winget install --id=Oracle.JavaRuntimeEnvironment --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-# winget install --id=SAP.SapMachine.23.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=Amazon.Corretto.8.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=EclipseAdoptium.Temurin.8.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=EclipseAdoptium.Temurin.23.JRE --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
 #####  Install Java Software Development Kit  #####
 Write-Host; Write-HostCenter "Installing Java Software Development Kit..." -ForegroundColor Cyan
-# winget install --id=Oracle.JDK.23 --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-# winget install --id=SAP.SapMachine.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-winget install --id=Amazon.Corretto.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=Amazon.Corretto.8.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=Amazon.Corretto.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=EclipseAdoptium.Temurin.8.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=EclipseAdoptium.Temurin.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
@@ -358,15 +357,16 @@ scoop bucket add extras
 scoop install main/scoop-search --global
 scoop install innounp --global
 
-#####  Install Git   #####
+#####  Install Git  #####
 Write-Host; Write-HostCenter "Installing Git..." -ForegroundColor Cyan
 scoop install git --global
 
 
-#####  Install curl, wget   #####
+#####  Install curl, wget, which  #####
 scoop install curl --global
 scoop install wget --global
 scoop install aria2 --global
+scoop install which --global
 
 #####  Install Clink for cmd.exe  #####
 Write-Host; Write-HostCenter "Installing Clink autocomplit tool for cmd.exe" -ForegroundColor Cyan
@@ -411,39 +411,37 @@ scoop install micro --global
 micro -plugin install fish lsp go autofmt snippets detectindent zigfmt runit editorconfig manipulator joinLines filemanager `
     palettero quoter pony crystal bounce cheat aspell bookmark jlabbrev gotham-colors fzf misspell wc quickfix jump
 
-
-
 #####  Install Pragtical Editor  #####
-if ([Environment]::Is64BitOperatingSystem) {
-    Write-Host; Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
-    scoop install pragtical --global
-    if (($env:PATH -split ';') -notcontains "$env:PROGRAMDATA\scoop\apps\pragtical\current") {
-        $env:PATH += ";$env:PROGRAMDATA\scoop\apps\pragtical\current"
-        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
-    }
-    scoop shim add p 'pragtical' --global
-    scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
-    scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+# if ([Environment]::Is64BitOperatingSystem) {
+#     Write-Host; Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
+#     scoop install pragtical --global
+#     if (($env:PATH -split ';') -notcontains "$env:PROGRAMDATA\scoop\apps\pragtical\current") {
+#         $env:PATH += ";$env:PROGRAMDATA\scoop\apps\pragtical\current"
+#         [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+#     }
+#     scoop shim add p 'pragtical' --global
+#     scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+#     scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
 
-    scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
-    $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
-    ppm purge --force
-    ppm install language* --assume-yes --progress --datadir=$datadir
-    ppm color install * --assume-yes --progress --datadir=$datadir
-    ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress --datadir=$datadir
-    ppm install lsp lsp_snippets snippets --assume-yes --progress --datadir=$datadir
+#     scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
+#     $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
+#     ppm purge --force
+#     ppm install language* --assume-yes --progress --datadir=$datadir
+#     ppm color install * --assume-yes --progress --datadir=$datadir
+#     ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress --datadir=$datadir
+#     ppm install lsp lsp_snippets snippets --assume-yes --progress --datadir=$datadir
 
-    ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
-        datetimestamps editorconfig endwise eofnewline ephemeral_tabs eval evergreen exec extend_selection_line exterm force_syntax formatter `
-        gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
-        keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
-        profiler rainbowparen recentfiles regexreplacepreview restoretabs `
-        scalestatus selectionhighlight smartopenselected smoothcaret sort sortcss spellcheck sticky_scroll su_save svg_screenshot `
-        tab_switcher tabnumbers terminal texcompile titleize togglesnakecamel treeview-extender typingspeed wordcount `
-        --assume-yes --progress --datadir=$datadir
+#     ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
+#         datetimestamps editorconfig endwise eofnewline ephemeral_tabs eval evergreen exec extend_selection_line exterm force_syntax formatter `
+#         gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
+#         keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
+#         profiler rainbowparen recentfiles regexreplacepreview restoretabs `
+#         scalestatus selectionhighlight smartopenselected smoothcaret sort sortcss spellcheck sticky_scroll su_save svg_screenshot `
+#         tab_switcher tabnumbers terminal texcompile titleize togglesnakecamel treeview-extender typingspeed wordcount `
+#         --assume-yes --progress --datadir=$datadir
 
-    ppm upgrade --assume-yes --datadir=$datadir
-}
+#     ppm upgrade --assume-yes --datadir=$datadir
+# }
 
 
 #####  Install oh-my-posh  #####
@@ -624,6 +622,9 @@ Set-ItemProperty -Path "HKCU:\Console\" -Name "FaceName" -Type String -Value "Je
 Set-ItemProperty -Path "HKCU:\Console\" -Name "FontSize" -Type DWord -Value "16" 2>$null
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "00" -Value "JetBrainsMono NFM" 2>$null
 
+#short command to edit profiles 
+scoop shim add powershellconf 'micro' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+scoop shim add pwshconf 'micro' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
 
 #####  FINISH  #####
 # Write-Host; Write-HostCenter "Reloading Profile..." -ForegroundColor Cyan
@@ -648,11 +649,12 @@ Write-HostCenter "!!!   Не забудьте поменять шрифт сво
 Write-HostCenter "!!!       JetBrainsMono NFM          font-size: 16      !!!" -ForegroundColor Yellow
 Write-HostCenter "!!!       MesloLGS Nerd Font Mono    font-size: 16      !!!" -ForegroundColor Yellow -NoNewline
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "> powershellconf - редактировать профиль AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
-Write-HostCenter "> pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
-Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
+Write-HostCenter "> powershellconf - редактировать профиль PowerShell $PROFILE.AllUsersAllHosts" -ForegroundColor DarkYellow
+Write-HostCenter "> pwshconf - редактировать профиль PowerShell Core $PROFILE.AllUsersAllHosts" -ForegroundColor DarkYellow
+# Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
 Write-HostCenter "> psedit - терминальный редактор ps скриптов" -ForegroundColor DarkYellow
 Write-HostCenter "> micro - терминальный редактор" -ForegroundColor DarkYellow
+Write-HostCenter "> which - определяет местоположение программы по имени" -ForegroundColor DarkYellow
 Write-HostCenter "[F2] в терминале, октрывает таблицу истории команд" -ForegroundColor DarkYellow
 
 # Write-Host; Write-HostCenter "Press any key to Update-Help" -ForegroundColor Gray
