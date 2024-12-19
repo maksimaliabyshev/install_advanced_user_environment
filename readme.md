@@ -123,16 +123,16 @@ PowerShell scripts, modules - улучшают и расширяют функц�
 
 ## Кнопка для панели Total Commander
 
-Скопировать все файлы репозитория в папку `%COMMANDER_PATH%\Scripts\`</br>
+Скопировать все файлы репозитория в папку `%COMMANDER_PATH%\AddOn\install_advanced_user_environment\`</br>
 Скопировать данный код и через ПКМ на панели кнопок выбрать опцию "Вставить"</br>
 
 ```autokey
 TOTALCMD#BAR#DATA
-%COMMANDER_PATH%\Scripts\altrun.exe
+%COMMANDER_PATH%\AddOn\install_advanced_user_environment\altrun.exe
 --run="%%WINDIR%%\sysnative\WindowsPowerShell\v1.0\powershell.exe" --par="-ExecutionPolicy Bypass -File install_advanced_user_environment.ps1"
 "%COMMANDER_PATH%\Scripts\install_advanced_user_environment.ico"
 WinGet, Scoop - пакетные менеджеры|PowerShell Core|Microsoft Edge WebView2 Runtime|Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+|Microsoft .NET Desktop 3.1/5/6/7/8/Preview|Microsoft .NET Framework 2/3/4.5/4@latest
-%COMMANDER_PATH%\Scripts\
+%COMMANDER_PATH%\AddOn\install_advanced_user_environment
 0
 -1
 ```
