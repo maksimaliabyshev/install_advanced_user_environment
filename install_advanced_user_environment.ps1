@@ -330,10 +330,11 @@ Write-Host; Write-HostCenter "Installing Microsoft .NET Framework 2/3..." -Foreg
 
 #####  Install Java Software Development Kit  #####
 Write-Host; Write-HostCenter "Installing Java Software Development Kit..." -ForegroundColor Cyan
-# winget install --id=Amazon.Corretto.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 # winget install --id=Amazon.Corretto.8.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-winget install --id=EclipseAdoptium.Temurin.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
-winget install --id=EclipseAdoptium.Temurin.8.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=Amazon.Corretto.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=EclipseAdoptium.Temurin.8.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+winget install --id=EclipseAdoptium.Temurin.17.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
+# winget install --id=EclipseAdoptium.Temurin.23.JDK --silent --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 
 #####  Install WinFsp  #####
