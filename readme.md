@@ -99,12 +99,6 @@ PowerShell scripts, modules - улучшают и расширяют функц�
 
 ### Pragtical Editor
 
-Через scoop создан shim link на Pragtical, запуск из терминала:</br>
-▶ p - откроет редактор с файлами из прошлой сесии</br>
-▶ p FileName - откроет существующий файл или создаст новую вкладку</br>
-▶ powershellconf - редактировать профиль AllUsersAllHosts PowerShell</br>
-▶ pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core</br>
-
 ▼ Горячии клавиши ▼</br>
 <https://pragtical.dev/docs/user-guide/keymap>
 
@@ -121,18 +115,26 @@ PowerShell scripts, modules - улучшают и расширяют функц�
 [ctrl] + [shift] + [/] - комменитровать блок</br>
 </br>
 
+## Шорткаты на запуск из терминала
+
+Через scoop создан shim link:</br>
+▶ p - откроет редактор с файлами из прошлой сесии</br>
+▶ p FileName - откроет существующий файл или создаст новую вкладку</br>
+▶ powershellconf - редактировать профиль AllUsersAllHosts PowerShell</br>
+▶ pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core</br>
+
 ## Кнопка для панели Total Commander
 
-Скопировать все файлы репозитория в папку `%COMMANDER_PATH%\AddOn\install_advanced_user_environment\`</br>
+Скопировать все файлы репозитория в папку `%COMMANDER_PATH%\Addons\install_advanced_user_environment\`</br>
 Скопировать данный код и через ПКМ на панели кнопок выбрать опцию "Вставить"</br>
 
 ```autokey
 TOTALCMD#BAR#DATA
-%COMMANDER_PATH%\AddOn\install_advanced_user_environment\altrun.exe
+%COMMANDER_PATH%\Addons\install_advanced_user_environment\altrun.exe
 --run="%%WINDIR%%\sysnative\WindowsPowerShell\v1.0\powershell.exe" --par="-ExecutionPolicy Bypass -File install_advanced_user_environment.ps1"
-"%COMMANDER_PATH%\AddOn\install_advanced_user_environment\install_advanced_user_environment.ico"
+"%COMMANDER_PATH%\Addons\install_advanced_user_environment\install_advanced_user_environment.ico"
 WinGet, Scoop - пакетные менеджеры|PowerShell Core|Microsoft Edge WebView2 Runtime|Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+|Microsoft .NET Desktop 3.1/5/6/7/8/Preview|Microsoft .NET Framework 2/3/4.5/4@latest
-%COMMANDER_PATH%\AddOn\install_advanced_user_environment
+%COMMANDER_PATH%\Addons\install_advanced_user_environment
 0
 -1
 ```

@@ -411,39 +411,37 @@ scoop install micro --global
 micro -plugin install fish lsp go autofmt snippets detectindent zigfmt runit editorconfig manipulator joinLines filemanager `
     palettero quoter pony crystal bounce cheat aspell bookmark jlabbrev gotham-colors fzf misspell wc quickfix jump
 
-
-
 #####  Install Pragtical Editor  #####
-if ([Environment]::Is64BitOperatingSystem) {
-    Write-Host; Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
-    scoop install pragtical --global
-    if (($env:PATH -split ';') -notcontains "$env:PROGRAMDATA\scoop\apps\pragtical\current") {
-        $env:PATH += ";$env:PROGRAMDATA\scoop\apps\pragtical\current"
-        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
-    }
-    scoop shim add p 'pragtical' --global
-    scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
-    scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+# if ([Environment]::Is64BitOperatingSystem) {
+#     Write-Host; Write-HostCenter "Installing Pragtical Editor..." -ForegroundColor Cyan
+#     scoop install pragtical --global
+#     if (($env:PATH -split ';') -notcontains "$env:PROGRAMDATA\scoop\apps\pragtical\current") {
+#         $env:PATH += ";$env:PROGRAMDATA\scoop\apps\pragtical\current"
+#         [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+#     }
+#     scoop shim add p 'pragtical' --global
+#     scoop shim add powershellconf 'pragtical' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+#     scoop shim add pwshconf 'pragtical' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
 
-    scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
-    $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
-    ppm purge --force
-    ppm install language* --assume-yes --progress --datadir=$datadir
-    ppm color install * --assume-yes --progress --datadir=$datadir
-    ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress --datadir=$datadir
-    ppm install lsp lsp_snippets snippets --assume-yes --progress --datadir=$datadir
+#     scoop install https://gist.githubusercontent.com/maksimaliabyshev/6b311f327078022dd365eea96f2428e8/raw/pragtical-plugin-manager.json --global
+#     $datadir = "$([Environment]::GetFolderPath('CommonApplicationData'))\scoop\apps\pragtical\current\data"
+#     ppm purge --force
+#     ppm install language* --assume-yes --progress --datadir=$datadir
+#     ppm color install * --assume-yes --progress --datadir=$datadir
+#     ppm install font_symbols_nerdfont_mono_regular nerdicons --assume-yes --progress --datadir=$datadir
+#     ppm install lsp lsp_snippets snippets --assume-yes --progress --datadir=$datadir
 
-    ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
-        datetimestamps editorconfig endwise eofnewline ephemeral_tabs eval evergreen exec extend_selection_line exterm force_syntax formatter `
-        gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
-        keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
-        profiler rainbowparen recentfiles regexreplacepreview restoretabs `
-        scalestatus selectionhighlight smartopenselected smoothcaret sort sortcss spellcheck sticky_scroll su_save svg_screenshot `
-        tab_switcher tabnumbers terminal texcompile titleize togglesnakecamel treeview-extender typingspeed wordcount `
-        --assume-yes --progress --datadir=$datadir
+#     ppm install align_carets autoinsert autowrap bracketmatch codeplus colorpicker colorpreview console copyfilelocation custom_caret `
+#         datetimestamps editorconfig endwise eofnewline ephemeral_tabs eval evergreen exec extend_selection_line exterm force_syntax formatter `
+#         gitblame gitdiff_highlight gitopen gitstatus gui_filepicker indent_convert indentguide json jsonmod `
+#         keymap_export linenumbers link_opener lintplus lorem markers minimap motiontrail navigate openfilelocation openselected `
+#         profiler rainbowparen recentfiles regexreplacepreview restoretabs `
+#         scalestatus selectionhighlight smartopenselected smoothcaret sort sortcss spellcheck sticky_scroll su_save svg_screenshot `
+#         tab_switcher tabnumbers terminal texcompile titleize togglesnakecamel treeview-extender typingspeed wordcount `
+#         --assume-yes --progress --datadir=$datadir
 
-    ppm upgrade --assume-yes --datadir=$datadir
-}
+#     ppm upgrade --assume-yes --datadir=$datadir
+# }
 
 
 #####  Install oh-my-posh  #####
@@ -624,6 +622,9 @@ Set-ItemProperty -Path "HKCU:\Console\" -Name "FaceName" -Type String -Value "Je
 Set-ItemProperty -Path "HKCU:\Console\" -Name "FontSize" -Type DWord -Value "16" 2>$null
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Console\TrueTypeFont\" -Name "00" -Value "JetBrainsMono NFM" 2>$null
 
+#short command to edit profiles 
+scoop shim add powershellconf 'micro' `"$(powershell -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
+scoop shim add pwshconf 'micro' `"$(pwsh -NoProfile -Command '$PROFILE.AllUsersAllHosts')`" --global
 
 #####  FINISH  #####
 # Write-Host; Write-HostCenter "Reloading Profile..." -ForegroundColor Cyan
@@ -648,9 +649,9 @@ Write-HostCenter "!!!   Не забудьте поменять шрифт сво
 Write-HostCenter "!!!       JetBrainsMono NFM          font-size: 16      !!!" -ForegroundColor Yellow
 Write-HostCenter "!!!       MesloLGS Nerd Font Mono    font-size: 16      !!!" -ForegroundColor Yellow -NoNewline
 Write-Host "`n" -BackgroundColor DarkRed
-Write-HostCenter "> powershellconf - редактировать профиль AllUsersAllHosts PowerShell" -ForegroundColor DarkYellow
-Write-HostCenter "> pwshconf - редактировать профиль AllUsersAllHosts PowerShell Core " -ForegroundColor DarkYellow
-Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
+Write-HostCenter "> powershellconf - редактировать профиль PowerShell $PROFILE.AllUsersAllHosts" -ForegroundColor DarkYellow
+Write-HostCenter "> pwshconf - редактировать профиль PowerShell Core $PROFILE.AllUsersAllHosts" -ForegroundColor DarkYellow
+# Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
 Write-HostCenter "> psedit - терминальный редактор ps скриптов" -ForegroundColor DarkYellow
 Write-HostCenter "> micro - терминальный редактор" -ForegroundColor DarkYellow
 Write-HostCenter "[F2] в терминале, октрывает таблицу истории команд" -ForegroundColor DarkYellow
