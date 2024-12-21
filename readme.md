@@ -33,7 +33,7 @@ WinFsp - <https://winfsp.dev></br>
 WinFetch - <https://github.com/lptstr/winfetch></br>
 Zoxide - <https://github.com/ajeetdsouza/zoxide></br>
 micro - <https://micro-editor.github.io></br>
-Pragtical - <https://pragtical.dev> - для редактирования конфигов, language source файлов</br>
+\# Pragtical - <https://pragtical.dev> - для редактирования конфигов, language source файлов</br>
 oh-my-posh - <https://ohmyposh.dev> - быстрый движок тем для любой оболочки PowerShell</br>
 wget, curl, aria2 - web network утилиты</br>
 PowerShell scripts, modules - улучшают и расширяют функциональность PowerShell</br>
