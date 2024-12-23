@@ -357,15 +357,16 @@ scoop bucket add extras
 scoop install main/scoop-search --global
 scoop install innounp --global
 
-#####  Install Git   #####
+#####  Install Git  #####
 Write-Host; Write-HostCenter "Installing Git..." -ForegroundColor Cyan
 scoop install git --global
 
 
-#####  Install curl, wget   #####
+#####  Install curl, wget, which  #####
 scoop install curl --global
 scoop install wget --global
 scoop install aria2 --global
+scoop install which --global
 
 #####  Install Clink for cmd.exe  #####
 Write-Host; Write-HostCenter "Installing Clink autocomplit tool for cmd.exe" -ForegroundColor Cyan
@@ -653,6 +654,7 @@ Write-HostCenter "> pwshconf - редактировать профиль PowerSh
 # Write-HostCenter "> p - запустить из терминала редактор Pragtical Editor " -ForegroundColor DarkYellow
 Write-HostCenter "> psedit - терминальный редактор ps скриптов" -ForegroundColor DarkYellow
 Write-HostCenter "> micro - терминальный редактор" -ForegroundColor DarkYellow
+Write-HostCenter "> which - определяет местоположение программы по имени" -ForegroundColor DarkYellow
 Write-HostCenter "[F2] в терминале, октрывает таблицу истории команд" -ForegroundColor DarkYellow
 
 # Write-Host; Write-HostCenter "Press any key to Update-Help" -ForegroundColor Gray
