@@ -16,7 +16,7 @@ WinGet, Scoop - пакетные менеджеры</br>
 PowerShell Core - <https://github.com/PowerShell/PowerShell></br>
 Microsoft Edge WebView2 Runtime</br>
 Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable</br>
-<span style="color:gray;">your text here >\# Microsoft Visual Studio C++ x64/x86 Build Tools - <https://visualstudio.microsoft.com/ru/downloads/#build-tools-for-visual-studio-2022></span></br>
+<span style="color:gray;">\#\#\# Microsoft Visual Studio C++ x64/x86 Build Tools - <https://visualstudio.microsoft.com/ru/downloads/#build-tools-for-visual-studio-2022></span></br>
 Microsoft .NET Desktop 3.1/5/6/7/8/Preview</br>
 Microsoft .NET Framework 2/3/4.5/4@latest</br>
 <font color="gray">\#\#\# Microsoft ASP.NET Core 2/3/5/6/7/8/Preview</br>
