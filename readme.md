@@ -16,12 +16,12 @@ WinGet, Scoop - пакетные менеджеры</br>
 PowerShell Core - <https://github.com/PowerShell/PowerShell></br>
 Microsoft Edge WebView2 Runtime</br>
 Microsoft Visual C++ 2005/2008/2010/2012/2013/2015+ Redistributable</br>
-\# Microsoft Visual Studio C++ x64/x86 Build Tools - <https://visualstudio.microsoft.com/ru/downloads/#build-tools-for-visual-studio-2022></br>
+<span style="color:gray;">your text here >\# Microsoft Visual Studio C++ x64/x86 Build Tools - <https://visualstudio.microsoft.com/ru/downloads/#build-tools-for-visual-studio-2022></span></br>
 Microsoft .NET Desktop 3.1/5/6/7/8/Preview</br>
 Microsoft .NET Framework 2/3/4.5/4@latest</br>
-\# Microsoft ASP.NET Core 2/3/5/6/7/8/Preview</br>
-\# DirectX Web Installer</br>
-\# Java Runtime Environment</br>
+<font color="gray">\#\#\# Microsoft ASP.NET Core 2/3/5/6/7/8/Preview</br>
+\#\#\# DirectX Web Installer</br>
+\#\#\# Java Runtime Environment</br></font>
 Java Software Development Kit</br>
 Git - <https://gitforwindows.org></br>
 Clink - <https://chrisant996.github.io/clink></br>
@@ -33,7 +33,7 @@ WinFsp - <https://winfsp.dev></br>
 WinFetch - <https://github.com/lptstr/winfetch></br>
 Zoxide - <https://github.com/ajeetdsouza/zoxide></br>
 micro - <https://micro-editor.github.io></br>
-\# Pragtical - <https://pragtical.dev> - для редактирования конфигов, language source файлов</br>
+\#\#\# Pragtical - <https://pragtical.dev> - для редактирования конфигов, language source файлов</br>
 oh-my-posh - <https://ohmyposh.dev> - быстрый движок тем для любой оболочки PowerShell</br>
 wget, curl, aria2 - web network утилиты</br>
 PowerShell scripts, modules - улучшают и расширяют функциональность PowerShell</br>
